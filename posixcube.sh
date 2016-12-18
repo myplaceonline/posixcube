@@ -1,5 +1,5 @@
 #!/bin/sh
-# posixcube.sh: POSIX.1-2008-standard automation scripting.
+# posixcube.sh
 #
 # Authors:
 #   Kevin Grigorenko (kevin@myplaceonline.com)
@@ -9,10 +9,11 @@
 #     * Version 0.1
 #
 # Development guidelines:
-#   1. See references [1, 2].
+#   1. See references [1, 2, 7].
 #   2. Indent with two spaces.
 #   3. Use lower-case variables unless exporting an envar [4].
 #   4. Try to keep lines less than 120 characters.
+#   5. Use a separate [ invocation for each single test, combine them with && and ||.
 #
 # References:
 #   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
@@ -22,6 +23,7 @@
 #      http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
 #   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
 #   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
+#   7. https://wiki.ubuntu.com/DashAsBinSh
 
 p666_version=0.1
 p666_color_reset="\x1B[0m"
@@ -31,17 +33,18 @@ p666_color_green="\x1B[32m"
 p666_debug=0
 p666_quiet=0
 p666_hosts=""
+p666_cubes=""
 p666_user="${USER}"
+p666_cubedir="~/posixcubes/"
 
 p666_show_usage () {
 
   # Try to keep lines for the usage output to less than 80 characters.
-  # When updating usage, also update README.md, replacing ${p666_version} with the current version,
+  # When updating usage, also update README.md, removing the ${p666_version} line,
   # replacing \` with `, and replacing \$ with $
   cat <<HEREDOC
-usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
-posixcube.sh version ${p666_version}
-POSIX.1-2008-standard automation scripting.
+usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
+version ${p666_version}
 
   -?        Help.
   -h HOST   Target host. Option may be specified multiple times. If a host has
@@ -50,12 +53,24 @@ POSIX.1-2008-standard automation scripting.
             files are added to the HOST list: /etc/ssh_config,
             /etc/ssh/ssh_config, ~/.ssh/config, /etc/ssh_known_hosts,
             /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
+  -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
+            are also specified, cubes are run first.
   -u USER   SSH user. Defaults to \${USER}.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
   -i        If using bash, install programmable tab completion for SSH hosts.
-  COMMANDS  Remote commands to run on each HOST.
+  COMMAND   Remote command to run on each HOST. Option may be specified
+            multiple times.
+
+Description:
+
+  posixcube.sh is used to execute COMMANDs and/or CUBEs on one or more HOSTs.
+  
+  A CUBE is a shell script or directory containing shell scripts. The CUBE
+  is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
+  CUBE is a directory, a shell script of the same name in that directory
+  is executed.
 
 Examples:
 
@@ -63,6 +78,10 @@ Examples:
   
     Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
     as the user \`root\`.
+  
+  ./posixcube.sh -h socrates -c server_check.sh
+  
+    Run the \`server_check.sh\` cube (script) on the \`socrates\` host.
   
   ./posixcube.sh -h web*.test.com uptime
   
@@ -190,7 +209,7 @@ p666_process_hostname () {
 # getopts processing based on http://stackoverflow.com/a/14203146/5657303
 OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
-while getopts "?vdqih:u:" p666_opt; do
+while getopts "?vdqih:u:c:" p666_opt; do
   case "$p666_opt" in
   \?)
     p666_show_usage
@@ -220,6 +239,13 @@ while getopts "?vdqih:u:" p666_opt; do
       p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
     fi
     ;;
+  c)
+    if [ "${p666_cubes}" = "" ]; then
+      p666_cubes="${OPTARG}"
+    else
+      p666_cubes="${p666_cubes} ${OPTARG}"
+    fi
+    ;;
   u)
     p666_user="${OPTARG}"
     ;;
@@ -239,27 +265,90 @@ if [ "${p666_hosts}" = "" ]; then
   p666_show_usage
 fi
 
-if [ "${p666_commands}" = "" ]; then
-  p666_printf_error "No COMMANDS specified."
+if [ "${p666_commands}" = "" ] && [ "${p666_cubes}" = "" ]; then
+  p666_printf_error "No COMMANDs or CUBEs specified."
   p666_show_usage
 fi
 
 [ ${p666_quiet} -eq 0 ] && p666_show_version
 
-p666_printf "Hosts: ${p666_hosts}\n"
-for p666_host in ${p666_hosts}; do
-  p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} ${p666_commands}...\n"
+p666_remote_ssh () {
+  p666_remote_ssh_commands="$1"
+  p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands}...\n"
   
   # TODO not sure how to redirect stderr into our variable while using backticks. We do this with $() but reference [2]
-  # says this isn't supported on Solaris and IRIX
-  p666_host_output=$(ssh ${p666_user}@${p666_host} ${p666_commands} 2>&1)
+  # says this isn't supported with backticks on Solaris and IRIX
+  p666_host_output=$(ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1)
   p666_host_output_result=$?
   p666_host_output_color=${p666_color_green}
   if [ ${p666_host_output_result} -ne 0 ]; then
     p666_host_output_color=${p666_color_red}
     p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: Last command failed with return code ${p666_host_output_result}\n"
+    [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands failed with no output."
+  else
+    [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded with no output."
   fi
-  p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+  if [ "${p666_host_output}" != "" ]; then
+    p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+  fi
+}
+
+p666_remote_transfer () {
+  p666_remote_transfer_source="$1"
+  p666_remote_transfer_dest="$2"
+  p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest}...\n"
+  
+  # Don't use -a so that ownership is picked up from the specified user
+  p666_host_output=$(rsync -rlpt "${p666_remote_transfer_source}" "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" 2>&1)
+  p666_host_output_result=$?
+  p666_host_output_color=${p666_color_green}
+  if [ ${p666_host_output_result} -ne 0 ]; then
+    p666_host_output_color=${p666_color_red}
+    p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: Last command failed with return code ${p666_host_output_result}\n"
+    [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands failed with no output."
+  else
+    [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded with no output."
+  fi
+  if [ "${p666_host_output}" != "" ]; then
+    p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+  fi
+}
+
+p666_cubedir=${p666_cubedir%/}
+
+p666_printf "Hosts: ${p666_hosts}\n"
+for p666_host in ${p666_hosts}; do
+  for p666_cube in ${p666_cubes}; do
+    if [ -d "${p666_cube}" ]; then
+      p666_cube_name=`basename "${p666_cube}"`
+      if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
+        chmod u+x ${p666_cube}/*.sh
+        p666_cube=${p666_cube%/}
+        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+        p666_remote_transfer "${p666_cube}" "${p666_cubedir}/"
+        p666_remote_ssh "${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh"
+      else
+        p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
+      fi
+    elif [ -r "${p666_cube}" ]; then
+      p666_cube_name=`basename "${p666_cube}"`
+      chmod u+x "${p666_cube}"
+      p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+      p666_remote_transfer "${p666_cube}" "${p666_cubedir}/"
+      p666_remote_ssh "${p666_cubedir}/${p666_cube_name}"
+    elif [ -r "${p666_cube}.sh" ]; then
+      p666_cube_name=`basename "${p666_cube}.sh"`
+      chmod u+x "${p666_cube}.sh"
+      p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+      p666_remote_transfer "${p666_cube}.sh" "${p666_cubedir}/"
+      p666_remote_ssh "${p666_cubedir}/${p666_cube_name}"
+    else
+      p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
+    fi
+  done
+  if [ "${p666_commands}" != "" ]; then
+    p666_remote_ssh "${p666_commands}"
+  fi
 done
 
 exit $?
