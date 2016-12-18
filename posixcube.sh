@@ -63,6 +63,11 @@ Examples:
     Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
     as the user \`root\`.
   
+  ./posixcube.sh -h web*.test.com uptime
+  
+    Run the \`uptime\` command on all hosts matching the regular expression
+    web.*.test.com in the SSH configuration files.
+  
   sudo ./posixcube.sh -i && source \
     /etc/bash_completion.d/posixcube_completion.sh
   
