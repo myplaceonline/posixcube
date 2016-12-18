@@ -36,14 +36,29 @@
 
     Examples:
     
+      ./posixcube.sh -h socrates uptime
+      
+        Run the `uptime` command on host `socrates`. This is not very different
+        from ssh ${USER}@socrates uptime, except that COMMANDs (`uptime`) have
+        access to the cube_* public functions.
+      
+      ./posixcube.sh -h socrates -c test.sh
+      
+        Run the `test.sh` script (CUBE) on host `socrates`. The script has
+        access to the cube_* public functions.
+      
+      ./posixcube.sh -h socrates -c test
+      
+        Upload the entire `test` directory (CUBE) to the host `socrates` and
+        then execute the `test.sh` script within that directory (the name
+        of the script is expected to be the same as the name of the CUBE). This
+        allows for easily packaging other scripts and resources needed by
+        `test.sh`.
+      
       ./posixcube.sh -u root -h socrates -h seneca uptime
       
         Run the `uptime` command on hosts `socrates` and `seneca`
         as the user `root`.
-      
-      ./posixcube.sh -h socrates -c server_check.sh
-      
-        Run the `server_check.sh` cube (script) on the `socrates` host.
       
       ./posixcube.sh -h web*.test.com uptime
       
