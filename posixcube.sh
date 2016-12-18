@@ -249,10 +249,16 @@ fi
 p666_printf "Hosts: ${p666_hosts}\n"
 for p666_host in ${p666_hosts}; do
   p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} ${p666_commands}...\n"
-  p666_host_output=`ssh ${p666_user}@${p666_host} ${p666_commands}`
+  
+  # TODO not sure how to redirect stderr into our variable while using backticks. We do this with $() but reference [2]
+  # says this isn't supported on Solaris and IRIX
+  p666_host_output=$(ssh ${p666_user}@${p666_host} ${p666_commands} 2>&1)
   p666_host_output_result=$?
   p666_host_output_color=${p666_color_green}
-  [ ${p666_host_output_result} -ne 0 ] && p666_host_output_color=${p666_color_red}
+  if [ ${p666_host_output_result} -ne 0 ]; then
+    p666_host_output_color=${p666_color_red}
+    p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: Last command failed with return code ${p666_host_output_result}\n"
+  fi
   p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
 done
 
