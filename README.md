@@ -19,9 +19,14 @@
       COMMANDS  Remote commands to run on each HOST.
 
     Examples:
+    
       ./posixcube.sh -u root -h socrates -h seneca uptime
       
-      Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
-      as the user \`root\`.
-
-    Source: https://github.com/myplaceonline/posixcube
+        Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
+        as the user \`root\`.
+      
+      sudo ./posixcube.sh -i && source \
+        /etc/bash_completion.d/posixcube_completion.sh
+      
+        For Bash users, install a programmable completion script to support tab
+        auto-completion of hosts from SSH configuration files.
