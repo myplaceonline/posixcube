@@ -21,12 +21,18 @@
 
     Description:
 
-      posixcube.sh is used to execute COMMANDs and/or CUBEs on one or more HOSTs.
+      posixcube.sh is used to execute CUBEs and/or COMMANDs on one or more HOSTs.
       
       A CUBE is a shell script or directory containing shell scripts. The CUBE
       is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
       CUBE is a directory, a shell script of the same name in that directory
       is executed.
+      
+      Both CUBEs and COMMANDs may execute any of the functions defined in the
+      "Public APIs" in the posixcube.sh script. Short descriptions of the functions
+      follows. See the source comments above each function for details.
+      
+      * cube_log: Print $1 to stdout with a newline using printf (args in $*).
 
     Examples:
     

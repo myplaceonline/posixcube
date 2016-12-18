@@ -55,12 +55,18 @@ version ${posixcube_version}
 
 Description:
 
-  posixcube.sh is used to execute COMMANDs and/or CUBEs on one or more HOSTs.
+  posixcube.sh is used to execute CUBEs and/or COMMANDs on one or more HOSTs.
   
   A CUBE is a shell script or directory containing shell scripts. The CUBE
   is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
   CUBE is a directory, a shell script of the same name in that directory
   is executed.
+  
+  Both CUBEs and COMMANDs may execute any of the functions defined in the
+  "Public APIs" in the posixcube.sh script. Short descriptions of the functions
+  follows. See the source comments above each function for details.
+  
+  * cube_log: Print $1 to stdout with a newline using printf (args in $*).
 
 Examples:
 
@@ -88,9 +94,9 @@ HEREDOC
   exit 1
 }
 
-####################
-# Core public APIs #
-####################
+###############
+# Public APIs #
+###############
 
 # Description:
 #   Print $1 to stdout prefixed with [`date`] and suffixed with a newline.
@@ -352,14 +358,14 @@ HEREDOC
 
   p666_printf "Hosts: ${p666_hosts}\n"
   for p666_host in ${p666_hosts}; do
+    p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+    p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
     for p666_cube in ${p666_cubes}; do
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
         if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
           chmod u+x ${p666_cube}/*.sh
           p666_cube=${p666_cube%/}
-          p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-          p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
           p666_remote_transfer "${p666_cube}" "${p666_cubedir}/"
           p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh"
         else
@@ -368,15 +374,11 @@ HEREDOC
       elif [ -r "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
         chmod u+x "${p666_cube}"
-        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-        p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
         p666_remote_transfer "${p666_cube}" "${p666_cubedir}/"
         p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && source ${p666_cubedir}/${p666_cube_name}"
       elif [ -r "${p666_cube}.sh" ]; then
         p666_cube_name=`basename "${p666_cube}.sh"`
         chmod u+x "${p666_cube}.sh"
-        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-        p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
         p666_remote_transfer "${p666_cube}.sh" "${p666_cubedir}/"
         p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && source ${p666_cubedir}/${p666_cube_name}"
       else
@@ -384,7 +386,7 @@ HEREDOC
       fi
     done
     if [ "${p666_commands}" != "" ]; then
-      p666_remote_ssh "${p666_commands}"
+      p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && ${p666_commands}"
     fi
   done
 fi
