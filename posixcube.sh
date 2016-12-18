@@ -186,7 +186,10 @@ fi
 for p666_host in ${p666_hosts}; do
   p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} ${p666_commands}...\n"
   p666_host_output=$(ssh ${p666_user}@${p666_host} ${p666_commands})
-  p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+  p666_host_output_result=$?
+  p666_host_output_color=${p666_color_green}
+  [ ! "${p666_host_output_result}" = 0 ] && p666_host_output_color=${p666_color_red}
+  p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
 done
 
 exit $?
