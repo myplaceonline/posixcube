@@ -1,6 +1,6 @@
 # posixcube
 
-    usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
+    usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
 
       -?        Help.
       -h HOST   Target host. Option may be specified multiple times. If a host has
