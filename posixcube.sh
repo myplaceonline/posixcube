@@ -36,7 +36,7 @@ p666_user="${USER}"
 p666_show_usage () {
 
   # Try to keep lines for the usage output to less than 80 characters.
-  # When updating usage, also update README.md.
+  # When updating usage, also update README.md with the current version.
   cat <<HEREDOC
 usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
 posixcube.sh version ${p666_version}

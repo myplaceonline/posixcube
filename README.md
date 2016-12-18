@@ -1,7 +1,7 @@
 # posixcube
 
     usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
-    posixcube.sh version ${p666_version}
+    posixcube.sh version 0.1
     POSIX.1-2008-standard automation scripting.
 
       -?        Help.
