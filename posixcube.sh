@@ -304,11 +304,11 @@ HEREDOC
     p666_show_usage
   fi
 
-  [ ${p666_quiet} -eq 0 ] && p666_show_version
+  [ ${p666_debug} -eq 1 ] && p666_show_version
 
   p666_remote_ssh () {
     p666_remote_ssh_commands="$1"
-    p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
     
     # TODO not sure how to redirect stderr into our variable while using backticks. We do this with $() but reference [2]
     # says this isn't supported with backticks on Solaris and IRIX
@@ -330,7 +330,7 @@ HEREDOC
   p666_remote_transfer () {
     p666_remote_transfer_source="$1"
     p666_remote_transfer_dest="$2"
-    p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest}...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
     
     # Don't use -a so that ownership is picked up from the specified user
     p666_host_output=$(rsync -rlpt "${p666_remote_transfer_source}" "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" 2>&1)
@@ -356,11 +356,15 @@ HEREDOC
   
   p666_remote_script="${p666_cubedir}/${p666_script_name}"
 
-  p666_printf "Hosts: ${p666_hosts}\n"
+  [ ${p666_debug} -eq 1 ] && p666_printf "Hosts: ${p666_hosts}\n"
+  
   for p666_host in ${p666_hosts}; do
     p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
     p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
     for p666_cube in ${p666_cubes}; do
+    
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Executing cube ${p666_cube} on ${p666_host} ...\n"
+      
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
         if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
@@ -386,6 +390,8 @@ HEREDOC
       fi
     done
     if [ "${p666_commands}" != "" ]; then
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Executing commands on ${p666_host} ...\n"
+      
       p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && ${p666_commands}"
     fi
   done
