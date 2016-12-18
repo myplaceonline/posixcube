@@ -5,7 +5,12 @@
     POSIX.1-2008-standard automation scripting.
 
       -?        Help.
-      -h HOST   Target host. May be specified multiple times.
+      -h HOST   Target host. Option may be specified multiple times. If a host has
+                a wildcard ('*'), then HOST is interpeted as a regular expression,
+                with '*' replaced with '.*' and any matching hosts in the following
+                files are added to the HOST list: /etc/ssh_config,
+                /etc/ssh/ssh_config, ~/.ssh/config, /etc/ssh_known_hosts,
+                /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
       -u USER   SSH user. Defaults to \${USER}.
       -v        Show version information.
       -d        Print debugging information.
@@ -16,6 +21,7 @@
     Examples:
       ./posixcube.sh -u root -h socrates -h seneca uptime
       
-      Run the \`uptime\` command on hosts \`socrates\` and \`seneca\` as the user \`root\`.
+      Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
+      as the user \`root\`.
 
     Source: https://github.com/myplaceonline/posixcube

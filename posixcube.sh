@@ -12,6 +12,7 @@
 #   1. See references [1, 2].
 #   2. Indent with two spaces.
 #   3. Use lower-case variables unless exporting an envar [4].
+#   4. Try to keep lines less than 120 characters.
 #
 # References:
 #   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
@@ -20,6 +21,7 @@
 #   4. "The name space of environment variable names containing lowercase letters is reserved for applications."
 #      http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
 #   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
+#   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
 
 p666_version=0.1
 p666_color_reset="\x1B[0m"
@@ -32,13 +34,21 @@ p666_hosts=""
 p666_user="${USER}"
 
 p666_show_usage () {
+
+  # Try to keep lines for the usage output to less than 80 characters.
+  # When updating usage, also update README.md.
   cat <<HEREDOC
 usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
 posixcube.sh version ${p666_version}
 POSIX.1-2008-standard automation scripting.
 
   -?        Help.
-  -h HOST   Target host. May be specified multiple times.
+  -h HOST   Target host. Option may be specified multiple times. If a host has
+            a wildcard ('*'), then HOST is interpeted as a regular expression,
+            with '*' replaced with '.*' and any matching hosts in the following
+            files are added to the HOST list: /etc/ssh_config,
+            /etc/ssh/ssh_config, ~/.ssh/config, /etc/ssh_known_hosts,
+            /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
   -u USER   SSH user. Defaults to \${USER}.
   -v        Show version information.
   -d        Print debugging information.
@@ -49,7 +59,8 @@ POSIX.1-2008-standard automation scripting.
 Examples:
   ./posixcube.sh -u root -h socrates -h seneca uptime
   
-  Run the \`uptime\` command on hosts \`socrates\` and \`seneca\` as the user \`root\`.
+  Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
+  as the user \`root\`.
 
 Source: https://github.com/myplaceonline/posixcube
 HEREDOC
@@ -69,7 +80,7 @@ p666_printf () {
 p666_printf_error () {
   p666_printf_str=$1
   shift
-  printf "[`date`] ${p666_color_red}Error${p666_color_reset}: ${p666_printf_str}" ${*} 1>&2
+  printf "\n[`date`] ${p666_color_red}Error${p666_color_reset}: ${p666_printf_str}\n\n" ${*} 1>&2
 }
 
 p666_install () {
@@ -132,6 +143,38 @@ HEREDOC
   exit ${p666_func_result}
 }
 
+p666_all_hosts=""
+
+p666_process_hostname () {
+  p666_processed_hostname="$1"
+  p666_hostname_wildcard=`expr ${p666_processed_hostname} : '.*\*.*'`
+  if [ ${p666_hostname_wildcard} -ne 0 ]; then
+    if [ "${p666_all_hosts}" = "" ]; then
+      p666_all_hosts=`{ 
+        for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
+        do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
+        done
+        for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
+        do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
+        done
+        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -v '*'`
+    fi
+    p666_processed_hostname_search=`printf "${p666_processed_hostname}" | sed 's/\*/\.\*/g'`
+    p666_processed_hostname=""
+    for p666_all_host in ${p666_all_hosts}; do
+      p666_all_host_match=`expr ${p666_all_host} : ${p666_processed_hostname_search}`
+      if [ ${p666_all_host_match} -ne 0 ]; then
+        if [ "${p666_processed_hostname}" = "" ]; then
+          p666_processed_hostname="${p666_all_host}"
+        else
+          p666_processed_hostname="${p666_processed_hostname} ${p666_all_host}"
+        fi
+      fi
+    done
+  fi
+  return 0
+}
+
 # getopts processing based on http://stackoverflow.com/a/14203146/5657303
 OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
@@ -154,10 +197,15 @@ while getopts "?vdqih:u:" p666_opt; do
     p666_install
     ;;
   h)
-    if [ "${p666_hosts}" = "" ]; then
-      p666_hosts="${OPTARG}"
+    p666_process_hostname "${OPTARG}"
+    if [ "${p666_processed_hostname}" != "" ]; then
+      if [ "${p666_hosts}" = "" ]; then
+        p666_hosts="${p666_processed_hostname}"
+      else
+        p666_hosts="${p666_hosts} ${p666_processed_hostname}"
+      fi
     else
-      p666_hosts="${p666_hosts} ${OPTARG}"
+      p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
     fi
     ;;
   u)
@@ -175,17 +223,18 @@ p666_commands="${@}"
 [ ${p666_debug} -eq 1 ] && p666_printf "debug=${p666_debug}, leftovers: ${p666_commands}\n"
 
 if [ "${p666_hosts}" = "" ]; then
-  p666_printf_error "No hosts specified with -h.\n\n" 1>&2
+  p666_printf_error "No hosts specified with -h."
   p666_show_usage
 fi
 
 if [ "${p666_commands}" = "" ]; then
-  p666_printf_error "No COMMANDS specified.\n\n" 1>&2
+  p666_printf_error "No COMMANDS specified."
   p666_show_usage
 fi
 
 [ ${p666_quiet} -eq 0 ] && p666_show_version
 
+p666_printf "Hosts: ${p666_hosts}\n"
 for p666_host in ${p666_hosts}; do
   p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} ${p666_commands}...\n"
   p666_host_output=`ssh ${p666_user}@${p666_host} ${p666_commands}`
