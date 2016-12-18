@@ -363,7 +363,7 @@ HEREDOC
     p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
     for p666_cube in ${p666_cubes}; do
     
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Executing cube ${p666_cube} on ${p666_host} ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing cube ${p666_cube} ...\n"
       
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
@@ -390,7 +390,7 @@ HEREDOC
       fi
     done
     if [ "${p666_commands}" != "" ]; then
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Executing commands on ${p666_host} ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing COMMAND(s) ...\n"
       
       p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && ${p666_commands}"
     fi
