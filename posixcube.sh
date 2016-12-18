@@ -36,7 +36,8 @@ p666_user="${USER}"
 p666_show_usage () {
 
   # Try to keep lines for the usage output to less than 80 characters.
-  # When updating usage, also update README.md with the current version.
+  # When updating usage, also update README.md, replacing ${p666_version} with the current version,
+  # replacing \` with `, and replacing \$ with $
   cat <<HEREDOC
 usage: posixcube.sh -h HOST... [OPTION]... COMMANDS
 posixcube.sh version ${p666_version}
@@ -68,8 +69,7 @@ Examples:
     Run the \`uptime\` command on all hosts matching the regular expression
     web.*.test.com in the SSH configuration files.
   
-  sudo ./posixcube.sh -i && source \
-    /etc/bash_completion.d/posixcube_completion.sh
+  sudo ./posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
   
     For Bash users, install a programmable completion script to support tab
     auto-completion of hosts from SSH configuration files.
