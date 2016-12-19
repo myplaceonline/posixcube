@@ -25,19 +25,11 @@
 #   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
 #   7. https://wiki.ubuntu.com/DashAsBinSh
 
-posixcube_version=0.1
-posixcube_color_reset="\x1B[0m"
-posixcube_color_red="\x1B[31m"
-posixcube_color_green="\x1B[32m"
-
 p666_show_usage() {
 
-  # Try to keep lines for the usage output to less than 80 characters.
-  # When updating usage, also update README.md, removing the ${posixcube_version} line,
-  # replacing \` with `, and replacing \$ with $
-  cat <<HEREDOC
+  # When updating usage, also update README.md.
+  cat <<'HEREDOC'
 usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
-version ${posixcube_version}
 
   -?        Help.
   -h HOST   Target host. Option may be specified multiple times. If a host has
@@ -48,7 +40,7 @@ version ${posixcube_version}
             /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
   -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
             are also specified, cubes are run first.
-  -u USER   SSH user. Defaults to \${USER}.
+  -u USER   SSH user. Defaults to ${USER}.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
@@ -69,44 +61,78 @@ Description:
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
   follows. See the source comments above each function for details.
   
-  * cube_log: Print \$1 to stdout prefixed with [\`date\`] [\`hostname\`] and
-              suffixed with a newline. Example: cube_log "Hello World"
-  * cube_throw: Same as cube_log but print to stderr and stop execution
-                with \`exit 1\`. Example: cube_throw "Expected some_file."
-  * cube_service: Run the $1 action on the $2 service.
-                  Example: cube_service start crond
-  
-  Philosophy: Fail hard and fast.
+  * cube_log:
+      Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
+      suffixed with a newline (with optional printf arguments in $@).
+      Example: cube_log "Hello World"
+
+  * cube_error:
+      Same as cube_log except output to stderr and include a red "Error: "
+      message prefix.
+      Example: cube_error "Goodbye World"
+
+  * cube_throw:
+      Same as cube_error but also print a stack of functions and processes
+      (if available) and then call `exit 1`.
+      Example: cube_throw "Expected some_file."
+
+  * cube_check_numargs:
+      Call cube_throw if there are less than $1 arguments in $@
+      Example: cube_check_numargs 2 "${@}"
+
+  * cube_service:
+      Run the $1 action on the $2 service.
+      Example: cube_service start crond
+
+  * cube_check_command_exists:
+      Check if $1 command or function exists in the current context.
+      Example: cube_check_command_exists systemctl
+
+  * cube_check_dir_exists:
+      Check if $1 exists as a directory.
+      Example: cube_check_dir_exists /etc/cron.d/
+
+  * cube_check_file_exists:
+      Check if $1 exists as a file with read access.
+      Example: cube_check_file_exists /etc/cron.d/0hourly
+
+  * cube_operating_system:
+      Detect operating system and return one of the CUBE_OS_* values.
+      Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
+
+Philosophy:
+
+  Fail hard and fast.
 
 Examples:
 
   ./posixcube.sh -h socrates uptime
   
-    Run the \`uptime\` command on host \`socrates\`. This is not very different
-    from ssh \${USER}@socrates uptime, except that COMMANDs (\`uptime\`) have
+    Run the `uptime` command on host `socrates`. This is not very different
+    from ssh ${USER}@socrates uptime, except that COMMANDs (`uptime`) have
     access to the cube_* public functions.
   
   ./posixcube.sh -h socrates -c test.sh
   
-    Run the \`test.sh\` script (CUBE) on host \`socrates\`. The script has
+    Run the `test.sh` script (CUBE) on host `socrates`. The script has
     access to the cube_* public functions.
   
   ./posixcube.sh -h socrates -c test
   
-    Upload the entire \`test\` directory (CUBE) to the host \`socrates\` and
-    then execute the \`test.sh\` script within that directory (the name
+    Upload the entire `test` directory (CUBE) to the host `socrates` and
+    then execute the `test.sh` script within that directory (the name
     of the script is expected to be the same as the name of the CUBE). This
     allows for easily packaging other scripts and resources needed by
-    \`test.sh\`.
+    `test.sh`.
   
   ./posixcube.sh -u root -h socrates -h seneca uptime
   
-    Run the \`uptime\` command on hosts \`socrates\` and \`seneca\`
-    as the user \`root\`.
+    Run the `uptime` command on hosts `socrates` and `seneca`
+    as the user `root`.
   
   ./posixcube.sh -h web*.test.com uptime
   
-    Run the \`uptime\` command on all hosts matching the regular expression
+    Run the `uptime` command on all hosts matching the regular expression
     web.*.test.com in the SSH configuration files.
   
   sudo ./posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
@@ -124,18 +150,23 @@ HEREDOC
 ###############
 
 # Constants
-CUBE_OS_UNKNOWN=-1
-CUBE_OS_LINUX=1
-CUBE_OS_MAC_OSX=2
-CUBE_OS_WINDOWS=3
+POSIXCUBE_VERSION=0.1
+POSIXCUBE_COLOR_RESET="\x1B[0m"
+POSIXCUBE_COLOR_RED="\x1B[31m"
+POSIXCUBE_COLOR_GREEN="\x1B[32m"
+
+POSIXCUBE_OS_UNKNOWN=-1
+POSIXCUBE_OS_LINUX=1
+POSIXCUBE_OS_MAC_OSX=2
+POSIXCUBE_OS_WINDOWS=3
 
 # Description:
-#   Print $1 to stdout prefixed with [`date`]  [`hostname`] and suffixed with
+#   Print $1 to stdout prefixed with ([`date`]  [`hostname`]) and suffixed with
 #   a newline.
 # Example call:
 #   cube_log "Hello World"
 # Example output:
-#   [Sun Dec 18 09:40:22 PST 2016] Hello World
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
 # Arguments:
 #   Required:
 #     $1: String to print (printf-compatible)
@@ -147,20 +178,32 @@ cube_log() {
   printf "[`date`] [`hostname`] ${cube_log_str}\n" "${@}"
 }
 
+# Description:
+#   Print $1 to stderr prefixed with ([`date`]  [`hostname`] Error: ) and
+#   suffixed with a newline.
+# Example call:
+#   cube_error "Goodbye World"
+# Example output:
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
+# Arguments:
+#   Required:
+#     $1: String to print (printf-compatible)
+#   Optional: 
+#     $2: printf arguments 
 cube_error() {
   cube_error_str=$1
   shift
-  printf "[`date`] [`hostname`] ${posixcube_color_red}Error${posixcube_color_reset}: ${cube_error_str}\n" "${@}" 1>&2
+  printf "[`date`] [`hostname`] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_str}\n" "${@}" 1>&2
 }
 
 # Description:
-#   Print the message in $1 the same as cube_log but to stderr, and then
-#   call `exit 1` (see Philosophy section above).
+#   Print $1 and a stack of functions and processes (if available) with
+#   cube_error and then call `exit 1`.
 # Example call:
 #   cube_throw "Expected some_file to exist."
 # Arguments:
 #   Required:
-#     $1: String to print (printf-compatible)
+#     $1: Error message
 #   Optional: 
 #     $2: printf arguments 
 cube_throw() {
@@ -205,35 +248,61 @@ cube_throw() {
   exit 1
 }
 
+# Description:
+#   Check if $1 command or function exists in the current context.
+# Example call:
+#   cube_check_command_exists systemctl
+# Arguments:
+#   Required:
+#     $1: Command or function name.
 cube_check_command_exists() {
   cube_check_numargs 1 "${@}"
   command -v ${1} >/dev/null 2>&1
 }
 
+# Description:
+#   Check if $1 exists as a directory.
+# Example call:
+#   cube_check_dir_exists /etc/cron.d/
+# Arguments:
+#   Required:
+#     $1: Directory name.
 cube_check_dir_exists() {
   cube_check_numargs 1 "${@}"
   [ -d "${1}" ]
 }
 
+# Description:
+#   Check if $1 exists as a file with read access.
+# Example call:
+#   cube_check_file_exists /etc/cron.d/0hourly
+# Arguments:
+#   Required:
+#     $1: File name.
 cube_check_file_exists() {
   cube_check_numargs 1 "${@}"
   [ -r "${1}" ]
 }
 
+# Description:
+#   Detect operating system and return one of the CUBE_OS_* values.
+# Example call:
+#   if [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ]; then ...
+# Arguments: None
 cube_operating_system() {
   # http://stackoverflow.com/a/27776822/5657303
   case "$(uname -s)" in
     Linux)
-      return ${CUBE_OS_LINUX}
+      echo ${POSIXCUBE_OS_LINUX}
       ;;
     Darwin)
-      return ${CUBE_OS_MAC_OSX}
+      echo ${POSIXCUBE_OS_MAC_OSX}
       ;;
     CYGWIN*|MINGW32*|MSYS*)
-      return ${CUBE_OS_WINDOWS}
+      echo ${POSIXCUBE_OS_WINDOWS}
       ;;
     *)
-      return ${CUBE_OS_UNKNOWN}
+      echo ${POSIXCUBE_OS_UNKNOWN}
       ;;
   esac
 }
@@ -295,7 +364,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_cubedir="~/posixcubes/"
 
   p666_show_version() {
-    p666_printf "posixcube.sh version ${posixcube_version}\n"
+    p666_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
   }
 
   p666_printf() {
@@ -307,7 +376,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_printf_error() {
     p666_printf_str=$1
     shift
-    printf "\n[`date`] ${posixcube_color_red}Error${posixcube_color_reset}: ${p666_printf_str}\n\n" "${@}" 1>&2
+    printf "\n[`date`] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
   }
 
   p666_install() {
@@ -469,22 +538,22 @@ HEREDOC
   [ ${p666_debug} -eq 1 ] && p666_show_version
   
   p666_handle_remote_response() {
-    p666_host_output_color=${posixcube_color_green}
+    p666_host_output_color=${POSIXCUBE_COLOR_GREEN}
     if [ ${p666_host_output_result} -ne 0 ]; then
-      p666_host_output_color=${posixcube_color_red}
+      p666_host_output_color=${POSIXCUBE_COLOR_RED}
       [ "${p666_host_output}" != "" ] && p666_host_output="Last command failed with return code ${p666_host_output_result}\n${p666_host_output}"
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands failed with no output."
     else
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded with no output."
     fi
     if [ "${p666_host_output}" != "" ]; then
-      p666_printf "[${p666_host_output_color}${p666_host}${posixcube_color_reset}] %s\n" "${p666_host_output}"
+      p666_printf "[${p666_host_output_color}${p666_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
     fi
   }
 
   p666_remote_ssh() {
     p666_remote_ssh_commands="$1"
-    [ ${p666_debug} -eq 1 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
     
     # TODO not sure how to redirect stderr into our variable while using backticks. We do this with $() but reference [2]
     # says this isn't supported with backticks on Solaris and IRIX
@@ -496,7 +565,7 @@ HEREDOC
   p666_remote_transfer() {
     p666_remote_transfer_source="$1"
     p666_remote_transfer_dest="$2"
-    [ ${p666_debug} -eq 1 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
     
     # Don't use -a so that ownership is picked up from the specified user
     p666_host_output=$(rsync -rlpt "${p666_remote_transfer_source}" "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" 2>&1)
@@ -518,7 +587,7 @@ HEREDOC
     p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
     for p666_cube in ${p666_cubes}; do
     
-      [ ${p666_quiet} -eq 0 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing cube ${p666_cube} ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing cube ${p666_cube} ...\n"
       
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
@@ -545,7 +614,7 @@ HEREDOC
       fi
     done
     if [ "${p666_commands}" != "" ]; then
-      [ ${p666_quiet} -eq 0 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing COMMAND(s) ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing COMMAND(s) ...\n"
       
       p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && ${p666_commands}"
     fi
