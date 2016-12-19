@@ -26,6 +26,9 @@
 #   7. https://wiki.ubuntu.com/DashAsBinSh
 
 posixcube_version=0.1
+posixcube_color_reset="\x1B[0m"
+posixcube_color_red="\x1B[31m"
+posixcube_color_green="\x1B[32m"
 
 p666_show_usage () {
 
@@ -66,7 +69,14 @@ Description:
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
   follows. See the source comments above each function for details.
   
-  * cube_log: Print $1 to stdout with a newline using printf (args in $*).
+  * cube_log: Print \$1 to stdout prefixed with [\`date\`] [\`hostname\`] and
+              suffixed with a newline. Example: cube_log "Hello World"
+  * cube_throw: Same as cube_log but print to stderr and stop execution
+                with \`exit 1\`. Example: cube_throw "Expected some_file."
+  * cube_service: Run the $1 action on the $2 service.
+                  Example: cube_service start crond
+  
+  Philosophy: Fail hard and fast.
 
 Examples:
 
@@ -113,8 +123,15 @@ HEREDOC
 # Public APIs #
 ###############
 
+# Constants
+CUBE_OS_UNKNOWN=-1
+CUBE_OS_LINUX=1
+CUBE_OS_MAC_OSX=2
+CUBE_OS_WINDOWS=3
+
 # Description:
-#   Print $1 to stdout prefixed with [`date`] and suffixed with a newline.
+#   Print $1 to stdout prefixed with [`date`]  [`hostname`] and suffixed with
+#   a newline.
 # Example call:
 #   cube_log "Hello World"
 # Example output:
@@ -125,9 +142,114 @@ HEREDOC
 #   Optional: 
 #     $2: printf arguments 
 cube_log () {
-  cuge_log_str=$1
+  cube_log_str=$1
   shift
-  printf "[`date`] ${cuge_log_str}\n" ${*}
+  printf "[`date`] [`hostname`] ${cube_log_str}\n" ${*}
+}
+
+cube_error () {
+  cube_error_str=$1
+  shift
+  printf "[`date`] [`hostname`] ${posixcube_color_red}Error${posixcube_color_reset}: ${cube_error_str}\n" ${*} 1>&2
+}
+
+# Description:
+#   Print the message in $1 the same as cube_log but to stderr, and then
+#   call `exit 1` (see Philosophy section above).
+# Example call:
+#   cube_throw "Expected some_file to exist."
+# Arguments:
+#   Required:
+#     $1: String to print (printf-compatible)
+#   Optional: 
+#     $2: printf arguments 
+cube_throw () {
+  cube_throw_str=$1
+  shift
+  cube_error "${cube_throw_str}" ${*}
+  
+  # On Linux, print the stack (http://stackoverflow.com/a/1438241/5657303)
+  cube_throw_pid=$$
+  if cube_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
+    cube_error Stack:
+  fi
+  if cube_command_exists caller ; then
+    x=0
+    while true; do
+      cube_error_caller=$(caller $x)
+      cube_error_caller_result=${?}
+      if [ ${cube_error_caller_result} -eq 0 ]; then
+        cube_error "  ${cube_error_caller}"
+      else
+        break
+      fi
+      x=$((${x}+1))
+    done
+  fi
+  if [ -r /proc/${cube_throw_pid}/cmdline ]; then
+    while true
+    do
+      cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline)
+      cube_throw_ppid=$(grep PPid /proc/${cube_throw_pid}/status | awk '{ print $2; }')
+      cube_error "  [${cube_throw_pid}]:${cube_throw_cmdline}"
+      if [ "${cube_throw_pid}" = "1" ]; then # init
+        break
+      fi
+      cube_throw_pid=${cube_throw_ppid}
+    done
+  fi
+  
+  exit 1
+}
+
+cube_command_exists () {
+  cube_check_numargs 1 ${*}
+  command -v ${1} >/dev/null 2>&1
+}
+
+cube_operating_system () {
+  # http://stackoverflow.com/a/27776822/5657303
+  case "$(uname -s)" in
+    Linux)
+      return ${CUBE_OS_LINUX}
+      ;;
+    Darwin)
+      return ${CUBE_OS_MAC_OSX}
+      ;;
+    CYGWIN*|MINGW32*|MSYS*)
+      return ${CUBE_OS_WINDOWS}
+      ;;
+    *)
+      return ${CUBE_OS_UNKNOWN}
+      ;;
+  esac
+}
+
+# Description:
+#   Throw an error if there are fewer than $1 arguments.
+# Example call:
+#   cube_check_numargs 2 ${*}
+# Arguments:
+#   Required:
+#     $1: String to print (printf-compatible)
+#     $*: Arguments to check
+cube_check_numargs () {
+  cube_check_numargs_expected=$1
+  shift
+  [ ${#} -lt ${cube_check_numargs_expected} ] && cube_throw "Expected ${cube_check_numargs_expected} arguments, received ${#}."
+  return 0
+}
+
+# Description:
+#   Run the $1 action on the $2 service.
+# Example call:
+#   cube_service start crond
+# Arguments:
+#   Required:
+#     $1: Action name supported by $2 (e.g. start, stop, restart, enable, etc.)
+#     $2: Service name.
+cube_service () {
+  cube_check_numargs 2 ${*}
 }
 
 ################################
@@ -136,10 +258,6 @@ cube_log () {
 
 # If we're being sourced on the remote machine, then we don't want to run any of the below
 if [ "${POSIXCUBE_SOURCED}" = "" ]; then
-  p666_color_reset="\x1B[0m"
-  p666_color_red="\x1B[31m"
-  p666_color_green="\x1B[32m"
-
   p666_debug=0
   p666_quiet=0
   p666_hosts=""
@@ -160,7 +278,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_printf_error () {
     p666_printf_str=$1
     shift
-    printf "\n[`date`] ${p666_color_red}Error${p666_color_reset}: ${p666_printf_str}\n\n" ${*} 1>&2
+    printf "\n[`date`] ${posixcube_color_red}Error${posixcube_color_reset}: ${p666_printf_str}\n\n" ${*} 1>&2
   }
 
   p666_install () {
@@ -323,43 +441,43 @@ HEREDOC
 
   p666_remote_ssh () {
     p666_remote_ssh_commands="$1"
-    [ ${p666_debug} -eq 1 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
     
     # TODO not sure how to redirect stderr into our variable while using backticks. We do this with $() but reference [2]
     # says this isn't supported with backticks on Solaris and IRIX
     p666_host_output=$(ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1)
     p666_host_output_result=$?
-    p666_host_output_color=${p666_color_green}
+    p666_host_output_color=${posixcube_color_green}
     if [ ${p666_host_output_result} -ne 0 ]; then
-      p666_host_output_color=${p666_color_red}
-      p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: Last command failed with return code ${p666_host_output_result}\n"
+      p666_host_output_color=${posixcube_color_red}
+      [ "${p666_host_output}" != "" ] && p666_host_output="Last command failed with return code ${p666_host_output_result}\n${p666_host_output}"
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands failed with no output."
     else
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded with no output."
     fi
     if [ "${p666_host_output}" != "" ]; then
-      p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+      p666_printf "[${p666_host_output_color}${p666_host}${posixcube_color_reset}] ${p666_host_output}\n"
     fi
   }
 
   p666_remote_transfer () {
     p666_remote_transfer_source="$1"
     p666_remote_transfer_dest="$2"
-    [ ${p666_debug} -eq 1 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
+    [ ${p666_debug} -eq 1 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
     
     # Don't use -a so that ownership is picked up from the specified user
     p666_host_output=$(rsync -rlpt "${p666_remote_transfer_source}" "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" 2>&1)
     p666_host_output_result=$?
-    p666_host_output_color=${p666_color_green}
+    p666_host_output_color=${posixcube_color_green}
     if [ ${p666_host_output_result} -ne 0 ]; then
-      p666_host_output_color=${p666_color_red}
-      p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: Last command failed with return code ${p666_host_output_result}\n"
+      p666_host_output_color=${posixcube_color_red}
+      [ "${p666_host_output}" != "" ] && p666_host_output="Last command failed with return code ${p666_host_output_result}\n${p666_host_output}"
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands failed with no output."
     else
       [ "${p666_host_output}" = "" ] && [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded with no output."
     fi
     if [ "${p666_host_output}" != "" ]; then
-      p666_printf "[${p666_host_output_color}${p666_host}${p666_color_reset}]: ${p666_host_output}\n"
+      p666_printf "[${p666_host_output_color}${p666_host}${posixcube_color_reset}] ${p666_host_output}\n"
     fi
   }
 
@@ -378,7 +496,7 @@ HEREDOC
     p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
     for p666_cube in ${p666_cubes}; do
     
-      [ ${p666_quiet} -eq 0 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing cube ${p666_cube} ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing cube ${p666_cube} ...\n"
       
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=`basename "${p666_cube}"`
@@ -405,7 +523,7 @@ HEREDOC
       fi
     done
     if [ "${p666_commands}" != "" ]; then
-      [ ${p666_quiet} -eq 0 ] && p666_printf "[${p666_color_green}${p666_host}${p666_color_reset}]: Executing COMMAND(s) ...\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "[${posixcube_color_green}${p666_host}${posixcube_color_reset}] Executing COMMAND(s) ...\n"
       
       p666_remote_ssh "POSIXCUBE_SOURCED=1 source ${p666_remote_script} && ${p666_commands}"
     fi
