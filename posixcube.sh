@@ -168,30 +168,33 @@ cube_throw () {
   shift
   cube_error "${cube_throw_str}" ${*}
   
-  # On Linux, print the stack (http://stackoverflow.com/a/1438241/5657303)
   cube_throw_pid=$$
-  if cube_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
+  
+  if cube_check_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
     cube_error Stack:
   fi
-  if cube_command_exists caller ; then
+  
+  if cube_check_command_exists caller ; then
     x=0
     while true; do
       cube_error_caller=$(caller $x)
       cube_error_caller_result=${?}
       if [ ${cube_error_caller_result} -eq 0 ]; then
-        cube_error "  ${cube_error_caller}"
+        cube_error "  [func] ${cube_error_caller}"
       else
         break
       fi
       x=$((${x}+1))
     done
   fi
+  
+  # http://stackoverflow.com/a/1438241/5657303
   if [ -r /proc/${cube_throw_pid}/cmdline ]; then
     while true
     do
       cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline)
       cube_throw_ppid=$(grep PPid /proc/${cube_throw_pid}/status | awk '{ print $2; }')
-      cube_error "  [${cube_throw_pid}]:${cube_throw_cmdline}"
+      cube_error "  [pid] %4s ${cube_throw_cmdline}" ${cube_throw_pid}
       if [ "${cube_throw_pid}" = "1" ]; then # init
         break
       fi
@@ -202,7 +205,7 @@ cube_throw () {
   exit 1
 }
 
-cube_command_exists () {
+cube_check_command_exists () {
   cube_check_numargs 1 ${*}
   command -v ${1} >/dev/null 2>&1
 }
