@@ -22,6 +22,7 @@
       -i        If using bash, install programmable tab completion for SSH hosts.
       -s        Skip remote host initialization (making ~/posixcubes, uploading
                 posixcube.sh, etc.
+      -k        Keep the cube_exec.sh generated script.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times.
 
@@ -40,18 +41,28 @@
       "Public APIs" in the posixcube.sh script. Short descriptions of the functions
       follows. See the source comments above each function for details.
       
-      * cube_log
+      * cube_echo
+          Print ${@} to stdout prefixed with ([`date`] [`hostname`]) and
+          suffixed with a newline.
+          Example: cube_echo "Hello World"
+
+      * cube_printf
           Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
           suffixed with a newline (with optional printf arguments in $@).
-          Example: cube_log "Hello World"
+          Example: cube_printf "Hello World from PID %5s" $$
 
-      * cube_error
-          Same as cube_log except output to stderr and include a red "Error: "
+      * cube_error_echo
+          Same as cube_echo except output to stderr and include a red "Error: "
           message prefix.
           Example: cube_error "Goodbye World"
 
+      * cube_error_printf
+          Same as cube_printf except output to stderr and include a red "Error: "
+          message prefix.
+          Example: cube_error "Goodbye World from PID %5s" $$
+
       * cube_throw
-          Same as cube_error but also print a stack of functions and processes
+          Same as cube_error_echo but also print a stack of functions and processes
           (if available) and then call `exit 1`.
           Example: cube_throw "Expected some_file."
 
@@ -158,4 +169,3 @@
         auto-completion of hosts from SSH configuration files.
 
     Source: https://github.com/myplaceonline/posixcube
-

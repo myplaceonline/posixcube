@@ -70,18 +70,28 @@ Description:
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
   follows. See the source comments above each function for details.
   
-  * cube_log
+  * cube_echo
+      Print ${@} to stdout prefixed with ([`date`] [`hostname`]) and
+      suffixed with a newline.
+      Example: cube_echo "Hello World"
+
+  * cube_printf
       Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
       suffixed with a newline (with optional printf arguments in $@).
-      Example: cube_log "Hello World"
+      Example: cube_printf "Hello World from PID %5s" $$
 
-  * cube_error
-      Same as cube_log except output to stderr and include a red "Error: "
+  * cube_error_echo
+      Same as cube_echo except output to stderr and include a red "Error: "
       message prefix.
       Example: cube_error "Goodbye World"
 
+  * cube_error_printf
+      Same as cube_printf except output to stderr and include a red "Error: "
+      message prefix.
+      Example: cube_error "Goodbye World from PID %5s" $$
+
   * cube_throw
-      Same as cube_error but also print a stack of functions and processes
+      Same as cube_error_echo but also print a stack of functions and processes
       (if available) and then call `exit 1`.
       Example: cube_throw "Expected some_file."
 
@@ -212,60 +222,80 @@ POSIXCUBE_OS_MAC_OSX=2
 POSIXCUBE_OS_WINDOWS=3
 
 # Description:
+#   Print ${@} to stdout prefixed with ([`date`]  [`hostname`]) and suffixed with
+#   a newline.
+# Example call:
+#   cube_echo "Hello World"
+# Example output:
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
+# Arguments: ${@} passed to echo
+cube_echo() {
+  printf "[`date`] [${POSIXCUBE_COLOR_GREEN}`hostname`${POSIXCUBE_COLOR_RESET}] "
+  echo "${@}"
+}
+
+# Description:
 #   Print $1 to stdout prefixed with ([`date`]  [`hostname`]) and suffixed with
 #   a newline.
 # Example call:
-#   cube_log "Hello World"
+#   cube_printf "Hello World from PID %5s" $$
 # Example output:
-#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World from PID   123
 # Arguments:
 #   Required:
 #     $1: String to print (printf-compatible)
 #   Optional: 
 #     $2: printf arguments 
-cube_log() {
-  cube_log_str=$1
+cube_printf() {
+  cube_printf_str=$1
   shift
-  printf "[`date`] [${POSIXCUBE_COLOR_GREEN}`hostname`${POSIXCUBE_COLOR_RESET}] ${cube_log_str}\n" "${@}"
+  printf "[`date`] [${POSIXCUBE_COLOR_GREEN}`hostname`${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
 }
 
 # Description:
 #   Print $1 to stderr prefixed with ([`date`]  [`hostname`] Error: ) and
 #   suffixed with a newline.
 # Example call:
-#   cube_error "Goodbye World"
+#   cube_error_echo "Goodbye World"
 # Example output:
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
+# Arguments: ${@} passed to echo
+cube_error_echo() {
+  printf "[`date`] [${POSIXCUBE_COLOR_RED}`hostname`${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  echo "${@}" 1>&2
+}
+
+# Description:
+#   Print $1 to stderr prefixed with ([`date`]  [`hostname`] Error: ) and
+#   suffixed with a newline.
+# Example call:
+#   cube_error_printf "Goodbye World from PID %5s" $$
+# Example output:
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World from PID   123
 # Arguments:
 #   Required:
 #     $1: String to print (printf-compatible)
 #   Optional: 
 #     $2: printf arguments 
-cube_error() {
-  cube_error_str=$1
+cube_error_printf() {
+  cube_error_printf_str=$1
   shift
-  printf "[`date`] [${POSIXCUBE_COLOR_RED}`hostname`${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_str}\n" "${@}" 1>&2
+  printf "[`date`] [${POSIXCUBE_COLOR_RED}`hostname`${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
 }
 
 # Description:
 #   Print $1 and a stack of functions and processes (if available) with
-#   cube_error and then call `exit 1`.
+#   cube_error_echo and then call `exit 1`.
 # Example call:
 #   cube_throw "Expected some_file to exist."
-# Arguments:
-#   Required:
-#     $1: Error message
-#   Optional: 
-#     $2: printf arguments 
+# Arguments: ${@} passed to cube_error_echo
 cube_throw() {
-  cube_throw_str=$1
-  shift
-  cube_error "${cube_throw_str}" "${@}"
+  cube_error_echo "${@}"
   
   cube_throw_pid=$$
   
   if cube_check_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
-    cube_error Stack:
+    cube_error_echo Stack:
   fi
   
   if cube_check_command_exists caller ; then
@@ -277,7 +307,7 @@ cube_throw() {
         cube_error_caller_result_lineno=$(echo "${cube_error_caller}" | awk '{ print $1 }')
         cube_error_caller_result_subroutine=$(echo "${cube_error_caller}" | awk '{ print $2 }')
         cube_error_caller_result_sourcefile=$(echo "${cube_error_caller}" | awk '{ for(i=3;i<=NF;i++){ printf "%s ", $i }; printf "\n" }')
-        cube_error "  [func] %4s ${cube_error_caller_result_subroutine} ${cube_error_caller_result_sourcefile}" "${cube_error_caller_result_lineno}"
+        cube_error_printf "  [func] %4s ${cube_error_caller_result_subroutine} ${cube_error_caller_result_sourcefile}" "${cube_error_caller_result_lineno}"
       else
         break
       fi
@@ -291,7 +321,7 @@ cube_throw() {
     do
       cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline)
       cube_throw_ppid=$(grep PPid /proc/${cube_throw_pid}/status | awk '{ print $2; }')
-      cube_error "  [pid] %5s ${cube_throw_cmdline}" ${cube_throw_pid}
+      cube_error_printf "  [pid] %5s ${cube_throw_cmdline}" ${cube_throw_pid}
       if [ "${cube_throw_pid}" = "1" ]; then # init
         break
       fi
@@ -411,7 +441,7 @@ cube_service() {
       cube_service_verb="${1}ed"
       ;;
   esac
-  cube_log "Successfully ${cube_service_verb} $2"
+  cube_echo "Successfully ${cube_service_verb} $2"
 }
 
 # Description:
@@ -486,7 +516,7 @@ cube_set_file_contents() {
   fi
 
   if [ ${cube_set_file_contents_needs_replace} -eq 1 ] ; then
-    cube_log "Updating file contents of ${cube_set_file_contents_target_file} with ${cube_set_file_contents_input_file}"
+    cube_echo "Updating file contents of ${cube_set_file_contents_target_file} with ${cube_set_file_contents_input_file}"
     cp "${cube_set_file_contents_input_file}" "${cube_set_file_contents_target_file}" || cube_check_return
     return 0
   else
