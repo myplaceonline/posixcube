@@ -399,7 +399,15 @@ cube_service() {
   else
     cube_throw "Could not find service program"
   fi
-  cube_log "Successfully sent action $1 to service $2"
+  case "${1}" in
+    stop)
+      cube_service_verb="stopped"
+      ;;
+    *)
+      cube_service_verb="${1}ed"
+      ;;
+  esac
+  cube_log "Successfully ${cube_service_verb} $2"
 }
 
 # Description:
