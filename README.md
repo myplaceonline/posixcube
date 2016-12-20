@@ -2,6 +2,10 @@
 
     usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
 
+      posixcube.sh is a (hopefully) POSIX compliant shell script server automation
+      framework. Use consistent APIs for common tasks and package functionality
+      and file templates in cubes (like recipes/playbooks from other frameworks).
+
       -?        Help.
       -h HOST   Target host. Option may be specified multiple times. If a host has
                 a wildcard ('*'), then HOST is interpeted as a regular expression,
