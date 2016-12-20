@@ -16,6 +16,8 @@
       -d        Print debugging information.
       -q        Quiet; minimize output.
       -i        If using bash, install programmable tab completion for SSH hosts.
+      -s        Skip remote host initialization (making ~/posixcubes, uploading
+                posixcube.sh, etc.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times.
 
@@ -26,54 +28,94 @@
       A CUBE is a shell script or directory containing shell scripts. The CUBE
       is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
       CUBE is a directory, a shell script of the same name in that directory
-      is executed.
+      is executed. In both cases, the directory is changed to the directory
+      containing the script before execution so that you may reference files
+      such as templates using relative paths.
       
       Both CUBEs and COMMANDs may execute any of the functions defined in the
       "Public APIs" in the posixcube.sh script. Short descriptions of the functions
       follows. See the source comments above each function for details.
       
-      * cube_log:
+      * cube_log
           Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
           suffixed with a newline (with optional printf arguments in $@).
           Example: cube_log "Hello World"
 
-      * cube_error:
+      * cube_error
           Same as cube_log except output to stderr and include a red "Error: "
           message prefix.
           Example: cube_error "Goodbye World"
 
-      * cube_throw:
+      * cube_throw
           Same as cube_error but also print a stack of functions and processes
           (if available) and then call `exit 1`.
           Example: cube_throw "Expected some_file."
 
-      * cube_check_numargs:
+      * cube_check_return
+          Check if $? is non-zero and call cube_throw if so.
+          Example: some_command || cube_check_return
+
+      * cube_check_numargs
           Call cube_throw if there are less than $1 arguments in $@
           Example: cube_check_numargs 2 "${@}"
 
-      * cube_service:
+      * cube_service
           Run the $1 action on the $2 service.
           Example: cube_service start crond
 
-      * cube_check_command_exists:
+      * cube_check_command_exists
           Check if $1 command or function exists in the current context.
           Example: cube_check_command_exists systemctl
 
-      * cube_check_dir_exists:
+      * cube_check_dir_exists
           Check if $1 exists as a directory.
           Example: cube_check_dir_exists /etc/cron.d/
 
-      * cube_check_file_exists:
+      * cube_check_file_exists
           Check if $1 exists as a file with read access.
           Example: cube_check_file_exists /etc/cron.d/0hourly
 
-      * cube_operating_system:
+      * cube_operating_system
           Detect operating system and return one of the CUBE_OS_* values.
           Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
+      * cube_current_script_name
+          echo the basename of the currently executing script.
+          Example: script_name=$(cube_current_script_name)
+
+      * cube_current_script_abs_path
+          echo the absolute path the currently executing script.
+          Example: script_name=$(cube_current_script_abs_path)
+
+      * cube_get_file_size
+          echo the size of a file $1 in bytes
+          Example: cube_get_file_size some_file
+
+      * cube_set_file_contents
+          Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
+          are different than $2.
+          Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
+
     Philosophy:
 
-      Fail hard and fast.
+      Fail hard and fast. In principle, a well written script would check ${?}
+      after each command and either gracefully handle it, or report an error.
+      Few people write scripts this well, so we enforce this check (using
+      `cube_check_return` within all APIs) and we encourage you to do the same
+      in your scripts with `some_command || cube_check_return`.
+
+    Frequently Asked Questions:
+
+      * Why is there a long delay before the first remote execution?
+      
+        You can see details of what's happening with the `-d` flag. By default,
+        the script first loops through every host and ensures that ~/posixcubes/
+        exists, then it transfers itself to the remote host. These two actions
+        may be skipped with the `-s` parameter if you've already run the script
+        at least once and your version of this script hasn't been updated. Next,
+        the script loops through every host and transfers any CUBEs and a script
+        containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
+        you'll see the "Executing on HOST..." line and the real execution starts.
 
     Examples:
 
@@ -112,3 +154,4 @@
         auto-completion of hosts from SSH configuration files.
 
     Source: https://github.com/myplaceonline/posixcube
+
