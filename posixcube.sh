@@ -752,13 +752,13 @@ source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh"
         exit 1
       fi
     elif [ -r "${p666_cube}" ]; then
-      p666_cube_name=`basename "${p666_cube}"`
+      p666_cube_name=$(basename "${p666_cube}")
       chmod u+x "${p666_cube}"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/
 source ${p666_cubedir}/${p666_cube_name}"
     elif [ -r "${p666_cube}.sh" ]; then
-      p666_cube_name=`basename "${p666_cube}.sh"`
+      p666_cube_name=$(basename "${p666_cube}.sh")
       chmod u+x "${p666_cube}.sh"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/
