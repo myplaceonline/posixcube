@@ -47,6 +47,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -i        If using bash, install programmable tab completion for SSH hosts.
   -s        Skip remote host initialization (making ~/posixcubes, uploading
             posixcube.sh, etc.
+  -k        Keep the cube_exec.sh generated script.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times.
 
@@ -490,6 +491,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_debug=0
   p666_quiet=0
   p666_skip_init=0
+  p666_keep_exec=0
   p666_hosts=""
   p666_cubes=""
   p666_user="${USER}"
@@ -606,7 +608,7 @@ HEREDOC
   # getopts processing based on http://stackoverflow.com/a/14203146/5657303
   OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
-  while getopts "?vdqish:u:c:" p666_opt; do
+  while getopts "?vdqiskh:u:c:" p666_opt; do
     case "$p666_opt" in
     \?)
       p666_show_usage
@@ -623,6 +625,9 @@ HEREDOC
       ;;
     s)
       p666_skip_init=1
+      ;;
+    k)
+      p666_keep_exec=1
       ;;
     i)
       p666_install
@@ -799,4 +804,6 @@ HEREDOC
     [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
     p666_remote_ssh "source ${p666_cubedir}/${p666_script}"
   done
+  
+  [ ${p666_keep_exec} -eq 0 ] && rm -f "${p666_script}"
 fi
