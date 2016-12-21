@@ -14,7 +14,8 @@
 # Development guidelines:
 #   1. See references [1, 2, 7].
 #   2. Indent with two spaces.
-#   3. Use lower-case variables unless exporting an envar [4].
+#   3. Use lower-case variables unless an envar may be used by other scripts [4].
+#      All scripts are `source`d together, so exporting is usually unnecessary.
 #   4. Try to keep lines less than 120 characters.
 #   5. Use a separate [ invocation for each single test, combine them with && and ||.
 #
@@ -29,7 +30,6 @@
 #   7. https://wiki.ubuntu.com/DashAsBinSh
 
 p666_show_usage() {
-
   # When updating usage, also update README.md.
   cat <<'HEREDOC'
 usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
@@ -153,9 +153,21 @@ Description:
       are different than $2.
       Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
+  * cube_set_file_contents_string
+      Set the contents of $1 to the string $@. Create file if it doesn't exist.
+      Example: cube_set_file_contents_string ~/.info "Hello World"
+
   * cube_readlink
       Echo the absolute path of $1 without any symbolic links.
       Example: cube_readlink /etc/localtime
+
+  * cube_random_number
+      Echo a random number between 1 and $1
+      Example: cube_random_number 10
+
+  * cube_tmpdir
+      Echo a temporary directory
+      Example: cube_tmpdir
 
 Philosophy:
 
@@ -498,7 +510,8 @@ cube_current_script_abs_path() {
 #   echo the size of a file $1 in bytes
 # Example call:
 #   cube_get_file_size some_file
-# Required:
+# Arguments:
+#   Required:
 #     $1: File
 cube_get_file_size() {
   cube_check_numargs 1 "${@}"
@@ -514,7 +527,8 @@ cube_get_file_size() {
 #   are different than $2.
 # Example call:
 #   cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
-# Required:
+# Arguments:
+#   Required:
 #     $1: Target file
 #     $2: Source file
 # Returns: success/true if the file was updated
@@ -544,6 +558,8 @@ cube_set_file_contents() {
     else
       cube_set_file_contents_needs_replace=1
     fi
+  else
+    cube_set_file_contents_needs_replace=1
   fi
 
   if [ ${cube_set_file_contents_needs_replace} -eq 1 ] ; then
@@ -556,10 +572,53 @@ cube_set_file_contents() {
 }
 
 # Description:
+#   Echo a random number between 1 and $1
+# Example call:
+#   cube_random_number 10
+# Arguments:
+#   Required:
+#     $1: Maximum value
+cube_random_number() {
+  cube_check_numargs 1 "${@}"
+  echo "" | awk "{ srand(); print int(${1} * rand()) + 1; }"
+}
+
+# Description:
+#   Echo a temporary directory
+# Example call:
+#   cube_tmpdir
+# Arguments: None
+cube_tmpdir() {
+  echo "/tmp/"
+}
+
+# Description:
+#   Set the contents of $1 to the string $@. Create file if it doesn't exist.
+# Example call:
+#   cube_set_file_contents_string ~/.info "Hello World"
+# Arguments:
+#   Required:
+#     $1: Target file
+#     $@: String contents
+# Returns: success/true if the file was updated
+cube_set_file_contents_string() {
+  cube_check_numargs 2 "${@}"
+  cube_set_file_contents_target_file="$1"; shift
+  
+  cube_set_file_contents_tmp="$(cube_tmpdir)/tmpcontents_$(cube_random_number 10000)"
+  echo "${@}" > "${cube_set_file_contents_tmp}"
+  cube_set_file_contents "${cube_set_file_contents_target_file}" "${cube_set_file_contents_tmp}"
+  cube_set_file_contents_result=$?
+  rm "${cube_set_file_contents_tmp}"
+  return ${cube_set_file_contents_result}
+}
+
+# Description:
 #   Echo the absolute path of $1 without any symbolic links.
 # Example call:
 #   cube_readlink /etc/localtime
-# Required:
+# Arguments:
+#   Required:
 #     $1: File
 cube_readlink() {
   cube_check_numargs 1 "${@}"

@@ -121,9 +121,21 @@
           are different than $2.
           Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
+      * cube_set_file_contents_string
+          Set the contents of $1 to the string $@. Create file if it doesn't exist.
+          Example: cube_set_file_contents_string ~/.info "Hello World"
+
       * cube_readlink
           Echo the absolute path of $1 without any symbolic links.
           Example: cube_readlink /etc/localtime
+
+      * cube_random_number
+          Echo a random number between 1 and $1
+          Example: cube_random_number 10
+
+      * cube_tmpdir
+          Echo a temporary directory
+          Example: cube_tmpdir
 
     Philosophy:
 
