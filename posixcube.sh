@@ -1,5 +1,8 @@
 #!/bin/sh
 # posixcube.sh
+#   posixcube.sh is a POSIX compliant shell script server automation framework.
+#   Use consistent APIs for common tasks and package functionality and file
+#   templates in cubes (like recipes/playbooks from other frameworks).
 #
 # Authors:
 #   Kevin Grigorenko (kevin@myplaceonline.com)
@@ -31,9 +34,9 @@ p666_show_usage() {
   cat <<'HEREDOC'
 usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
 
-  posixcube.sh is a (hopefully) POSIX compliant shell script server automation
-  framework. Use consistent APIs for common tasks and package functionality
-  and file templates in cubes (like recipes/playbooks from other frameworks).
+  posixcube.sh is a POSIX compliant shell script server automation framework.
+  Use consistent APIs for common tasks and package functionality and file
+  templates in cubes (like recipes/playbooks from other frameworks).
 
   -?        Help.
   -h HOST   Target host. Option may be specified multiple times. If a host has
@@ -45,6 +48,11 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
             are also specified, cubes are run first.
   -u USER   SSH user. Defaults to ${USER}.
+  -e ENVAR  Shell script with environment variable assignments which is
+            uploaded and executed on each HOST. Option may be specified
+            multiple times. Files ending with .enc will be decrypted
+            temporarily.
+  -p PWD    Password for decrypting .enc ENVAR files.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
@@ -53,7 +61,9 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             posixcube.sh, etc.
   -k        Keep the cube_exec.sh generated script.
   COMMAND   Remote command to run on each HOST. Option may be specified
-            multiple times.
+            multiple times. If no HOSTs are specified, available sub-commands:
+              edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
+              show: Decrypt and print ENVAR file.
 
 Description:
 
@@ -66,17 +76,20 @@ Description:
   containing the script before execution so that you may reference files
   such as templates using relative paths.
   
+  An ENVAR script is encouraged to use environment variable names of the form
+  cubevar_${uniquecontext}_envar="value".
+  
   Both CUBEs and COMMANDs may execute any of the functions defined in the
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
   follows. See the source comments above each function for details.
   
   * cube_echo
-      Print ${@} to stdout prefixed with ([`date`] [`hostname`]) and
+      Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and
       suffixed with a newline.
       Example: cube_echo "Hello World"
 
   * cube_printf
-      Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
+      Print $1 to stdout prefixed with ([$(date)] [$(hostname)]) and
       suffixed with a newline (with optional printf arguments in $@).
       Example: cube_printf "Hello World from PID %5s" $$
 
@@ -140,6 +153,10 @@ Description:
       are different than $2.
       Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
+  * cube_readlink
+      Echo the absolute path of $1 without any symbolic links.
+      Example: cube_readlink /etc/localtime
+
 Philosophy:
 
   Fail hard and fast. In principle, a well written script would check ${?}
@@ -150,7 +167,8 @@ Philosophy:
 
 Frequently Asked Questions:
 
-  * Why is there a long delay before the first remote execution?
+  * Why is there a long delay between "Preparing hosts" and the first remote
+    execution?
   
     You can see details of what's happening with the `-d` flag. By default,
     the script first loops through every host and ensures that ~/posixcubes/
@@ -160,6 +178,11 @@ Frequently Asked Questions:
     the script loops through every host and transfers any CUBEs and a script
     containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
     you'll see the "Executing on HOST..." line and the real execution starts.
+
+Cube Development:
+
+  Shell scripts don't have scoping, so to reduce the chances of function name
+  conflicts, name functions cube_${cubename}_${function}
 
 Examples:
 
@@ -197,6 +220,14 @@ Examples:
     For Bash users, install a programmable completion script to support tab
     auto-completion of hosts from SSH configuration files.
 
+  ./posixcube.sh -e production.sh.enc show
+  
+    Decrypt and show the contents of production.sh
+  
+  ./posixcube.sh -e production.sh.enc edit
+  
+    Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
+  
 Source: https://github.com/myplaceonline/posixcube
 
 HEREDOC
@@ -222,7 +253,7 @@ POSIXCUBE_OS_MAC_OSX=2
 POSIXCUBE_OS_WINDOWS=3
 
 # Description:
-#   Print ${@} to stdout prefixed with ([`date`]  [`hostname`]) and suffixed with
+#   Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
 #   a newline.
 # Example call:
 #   cube_echo "Hello World"
@@ -230,12 +261,12 @@ POSIXCUBE_OS_WINDOWS=3
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
 # Arguments: ${@} passed to echo
 cube_echo() {
-  printf "[`date`] [${POSIXCUBE_COLOR_GREEN}`hostname`${POSIXCUBE_COLOR_RESET}] "
+  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] "
   echo "${@}"
 }
 
 # Description:
-#   Print $1 to stdout prefixed with ([`date`]  [`hostname`]) and suffixed with
+#   Print $1 to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
 #   a newline.
 # Example call:
 #   cube_printf "Hello World from PID %5s" $$
@@ -249,11 +280,11 @@ cube_echo() {
 cube_printf() {
   cube_printf_str=$1
   shift
-  printf "[`date`] [${POSIXCUBE_COLOR_GREEN}`hostname`${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
 }
 
 # Description:
-#   Print $1 to stderr prefixed with ([`date`]  [`hostname`] Error: ) and
+#   Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
 #   suffixed with a newline.
 # Example call:
 #   cube_error_echo "Goodbye World"
@@ -261,12 +292,12 @@ cube_printf() {
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
 # Arguments: ${@} passed to echo
 cube_error_echo() {
-  printf "[`date`] [${POSIXCUBE_COLOR_RED}`hostname`${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   echo "${@}" 1>&2
 }
 
 # Description:
-#   Print $1 to stderr prefixed with ([`date`]  [`hostname`] Error: ) and
+#   Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
 #   suffixed with a newline.
 # Example call:
 #   cube_error_printf "Goodbye World from PID %5s" $$
@@ -280,7 +311,7 @@ cube_error_echo() {
 cube_error_printf() {
   cube_error_printf_str=$1
   shift
-  printf "[`date`] [${POSIXCUBE_COLOR_RED}`hostname`${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
 }
 
 # Description:
@@ -524,6 +555,34 @@ cube_set_file_contents() {
   fi
 }
 
+# Description:
+#   Echo the absolute path of $1 without any symbolic links.
+# Example call:
+#   cube_readlink /etc/localtime
+# Required:
+#     $1: File
+cube_readlink() {
+  cube_check_numargs 1 "${@}"
+
+  # http://stackoverflow.com/a/697552/5657303
+  # Don't bother trying to short-circuit with readlink because of issues on
+  # Mac. We could special case that, but meh.
+  #if cube_check_command_exists readlink ; then
+  #  readlink -f $1
+  #else
+    cube_readlink_target=$1
+    cube_readlink_path=$(cd -P -- "$(dirname -- "${cube_readlink_target}")" && pwd -P) && cube_readlink_path=${cube_readlink_path}/$(basename -- "${cube_readlink_target}")
+    
+    while [ -h "${cube_readlink_path}" ]; do
+      cube_readlink_dir=$(dirname -- "${cube_readlink_path}")
+      cube_readlink_sym=$(readlink "${cube_readlink_path}")
+      cube_readlink_path=$(cd "${cube_readlink_dir}" && cd "$(dirname -- "${cube_readlink_sym}")" && pwd)/$(basename -- "${cube_readlink_sym}")
+    done
+    
+    echo ${cube_readlink_path}
+  #fi
+}
+
 ################################
 # Core internal implementation #
 ################################
@@ -536,6 +595,8 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_keep_exec=0
   p666_hosts=""
   p666_cubes=""
+  p666_envar_scripts=""
+  p666_envar_scripts_password=""
   p666_user="${USER}"
   p666_cubedir="~/posixcubes/"
 
@@ -546,13 +607,13 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_printf() {
     p666_printf_str=$1
     shift
-    printf "[`date`] ${p666_printf_str}" "${@}"
+    printf "[$(date)] ${p666_printf_str}" "${@}"
   }
 
   p666_printf_error() {
     p666_printf_str=$1
     shift
-    printf "\n[`date`] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
+    printf "\n[$(date)] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
   }
 
   p666_install() {
@@ -570,14 +631,14 @@ _posixcube_complete_host() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   case "${prev}" in
     \-h)
-      p666_host_list=`{ 
+      p666_host_list=$({ 
         for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
         do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
         done
         for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
         do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
         done
-        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -v '*'`
+        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -v '*')
       COMPREPLY=( $(compgen -W "${p666_host_list}" -- $cur))
       ;;
     *)
@@ -606,7 +667,7 @@ HEREDOC
       else
         p666_printf "Could not create ${p666_autocomplete_file}\n"
         p666_printf "You may need to try with sudo. For example:\n"
-        p666_printf "  sudo ./posixcube.sh -i && source ${p666_autocomplete_file}\n"
+        p666_printf "  sudo $(cube_current_script_abs_path) -i && source ${p666_autocomplete_file}\n"
         p666_printf "You only need to source the command the first time. Subsequent shells will automatically source it.\n"
       fi
     else
@@ -619,22 +680,22 @@ HEREDOC
 
   p666_process_hostname() {
     p666_processed_hostname="$1"
-    p666_hostname_wildcard=`expr ${p666_processed_hostname} : '.*\*.*'`
+    p666_hostname_wildcard=$(expr ${p666_processed_hostname} : '.*\*.*')
     if [ ${p666_hostname_wildcard} -ne 0 ]; then
       if [ "${p666_all_hosts}" = "" ]; then
-        p666_all_hosts=`{ 
+        p666_all_hosts=$({ 
           for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
           do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
           done
           for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
           do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
           done
-          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -v '*'`
+          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -v '*')
       fi
-      p666_processed_hostname_search=`printf "${p666_processed_hostname}" | sed 's/\*/\.\*/g'`
+      p666_processed_hostname_search=$(printf "${p666_processed_hostname}" | sed 's/\*/\.\*/g')
       p666_processed_hostname=""
       for p666_all_host in ${p666_all_hosts}; do
-        p666_all_host_match=`expr ${p666_all_host} : ${p666_processed_hostname_search}`
+        p666_all_host_match=$(expr ${p666_all_host} : ${p666_processed_hostname_search})
         if [ ${p666_all_host_match} -ne 0 ]; then
           if [ "${p666_processed_hostname}" = "" ]; then
             p666_processed_hostname="${p666_all_host}"
@@ -650,7 +711,7 @@ HEREDOC
   # getopts processing based on http://stackoverflow.com/a/14203146/5657303
   OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
-  while getopts "?vdqiskh:u:c:" p666_opt; do
+  while getopts "?vdqiskh:u:c:e:p:" p666_opt; do
     case "$p666_opt" in
     \?)
       p666_show_usage
@@ -694,8 +755,22 @@ HEREDOC
         p666_cubes="${p666_cubes} ${OPTARG}"
       fi
       ;;
+    e)
+      if [ ! -r "${OPTARG}" ]; then
+        p666_printf_error "Could not find ${OPTARG} ENVAR script."
+        exit 1
+      fi
+      if [ "${p666_envar_scripts}" = "" ]; then
+        p666_envar_scripts="${OPTARG}"
+      else
+        p666_envar_scripts="${p666_envar_scripts} ${OPTARG}"
+      fi
+      ;;
     u)
       p666_user="${OPTARG}"
+      ;;
+    p)
+      p666_envar_scripts_password="${OPTARG}"
       ;;
     esac
   done
@@ -707,8 +782,79 @@ HEREDOC
   p666_commands="${@}"
 
   if [ "${p666_hosts}" = "" ]; then
-    p666_printf_error "No hosts specified with -h."
-    p666_show_usage
+    # If there are no hosts, check COMMANDs for sub-commands
+    if [ "${p666_commands}" != "" ]; then
+      case "${1}" in
+        edit|show)
+          if [ "${p666_envar_scripts}" != "" ]; then
+            p666_envar_scripts_space=$(expr ${p666_envar_scripts} : '.* .*')
+            if [ ${p666_envar_scripts_space} -eq 0 ]; then
+              p666_envar_scripts_enc=$(expr ${p666_envar_scripts} : '.*enc$')
+              if [ ${p666_envar_scripts_enc} -ne 0 ]; then
+                if cube_check_command_exists gpg ; then
+                  p666_envar_script="${p666_envar_scripts}"
+                  p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
+                  
+                  if [ "${p666_envar_scripts_password}" = "" ]; then
+                    p666_printf "Enter the password for ${p666_envar_script}:\n"
+                    gpg --output "${p666_envar_script_new}" --yes --decrypt "${p666_envar_script}" || cube_check_return
+                  else
+                    p666_printf "Decrypting ${p666_envar_script} ...\n"
+                    echo "${p666_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p666_envar_script_new}" --decrypt "${p666_envar_script}" || cube_check_return
+                  fi
+                  
+                  case "${1}" in
+                    show)
+                      p666_printf "Contents of ${p666_envar_script}:\n"
+                      cat "${p666_envar_script_new}"
+                      ;;
+                    edit)
+                      "${EDITOR:-vi}" "${p666_envar_script_new}" || cube_check_return
+                      
+                      if [ "${p666_envar_scripts_password}" = "" ]; then
+                        p666_printf "Enter the password to re-encrypt ${p666_envar_script}:\n"
+                        gpg --yes --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p666_envar_script}" --symmetric "${p666_envar_script_new}" || cube_check_return
+                      else
+                        p666_printf "Re-encrypting ${p666_envar_script} ...\n"
+                        echo "${p666_envar_scripts_password}" | gpg --batch --passphrase-fd 0 --yes --no-use-agent --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p666_envar_script}" --symmetric "${p666_envar_script_new}" || cube_check_return
+                      fi
+                      ;;
+                    *)
+                      p666_printf_error "Not implemented"
+                      p666_show_usage
+                      ;;
+                  esac
+                  
+                  rm -f "${p666_envar_script_new}" || cube_check_return
+                  
+                  exit 0
+                else
+                  p666_printf_error "gpg program not found on the PATH"
+                  p666_show_usage
+                fi
+              else
+                p666_printf_error "Encrypted ENVAR file must end in .enc extension."
+                p666_show_usage
+              fi
+            else
+              p666_printf_error "Edit sub-COMMAND takes a single -e ENVAR file."
+              p666_show_usage
+            fi
+          else
+            p666_printf_error "Edit sub-COMMAND without -e ENVAR file."
+            p666_show_usage
+          fi
+          exit 0
+          ;;
+        *)
+          p666_printf_error "Unknown sub-COMMAND ${1}"
+          p666_show_usage
+          ;;
+      esac
+    else
+      p666_printf_error "No hosts specified with -h and no sub-COMMAND specified."
+      p666_show_usage
+    fi
   fi
 
   if [ "${p666_commands}" = "" ] && [ "${p666_cubes}" = "" ]; then
@@ -757,26 +903,68 @@ HEREDOC
   
   p666_remote_script="${p666_cubedir}/${p666_script_name}"
 
-  [ ${p666_debug} -eq 1 ] && p666_printf "Hosts: ${p666_hosts}\n"
-  
-  if [ ${p666_skip_init} -eq 0 ]; then
-    for p666_host in ${p666_hosts}; do
-      p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-      p666_remote_transfer "${p666_script_path}" "${p666_cubedir}/"
-    done
-  fi
-  
   # Create a script that we'll execute on the remote end
   p666_script_contents="cube_initial_directory=\${PWD}"
+  
+  p666_envar_scripts_final=""
+
+  for p666_envar_script in ${p666_envar_scripts}; do
+  
+    p666_envar_script_remove=0
+  
+    p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.enc$')
+    
+    if [ ${p666_envar_script_enc_matches} -ne 0 ]; then
+      if cube_check_command_exists gpg ; then
+        [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script}"
+        
+        p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
+        
+        if [ "${p666_envar_scripts_password}" = "" ]; then
+          p666_printf "Enter the password for ${p666_envar_script}:\n"
+          gpg --output "${p666_envar_script_new}" --yes --decrypt "${p666_envar_script}" || cube_check_return
+        else
+          p666_printf "Decrypting ${p666_envar_script} ...\n"
+          echo "${p666_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p666_envar_script_new}" --decrypt "${p666_envar_script}" || cube_check_return
+        fi
+        
+        p666_envar_script="${p666_envar_script_new}"
+        p666_envar_script_remove=1
+      else
+        p666_printf_error "gpg program not found on the PATH"
+        exit 1
+      fi
+    fi
+    
+    if [ "${p666_envar_scripts_final}" = "" ]; then
+      p666_envar_scripts_final="${p666_envar_script}"
+    else
+      p666_envar_scripts_final="${p666_envar_scripts_final} ${p666_envar_script}"
+    fi
+    
+    chmod u+x "${p666_envar_script}"
+    
+    p666_script_contents="${p666_script_contents}
+cd ${p666_cubedir}/ || cube_check_return
+source ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
+
+    if [ ${p666_envar_script_remove} -eq 1 ]; then
+      p666_script_contents="${p666_script_contents}
+rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
+    fi
+  done
+  
+  p666_envar_scripts="${p666_envar_scripts_final}"
+  
   for p666_cube in ${p666_cubes}; do
     if [ -d "${p666_cube}" ]; then
-      p666_cube_name=`basename "${p666_cube}"`
+      p666_cube_name=$(basename "${p666_cube}")
       if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
         chmod u+x ${p666_cube}/*.sh
         p666_cube=${p666_cube%/}
         p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/${p666_cube}/
-source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh"
+cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
+source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return"
       else
         p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
         exit 1
@@ -785,20 +973,21 @@ source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh"
       p666_cube_name=$(basename "${p666_cube}")
       chmod u+x "${p666_cube}"
       p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/
-source ${p666_cubedir}/${p666_cube_name}"
+cd ${p666_cubedir}/ || cube_check_return
+source ${p666_cubedir}/${p666_cube_name} || cube_check_return"
     elif [ -r "${p666_cube}.sh" ]; then
       p666_cube_name=$(basename "${p666_cube}.sh")
       chmod u+x "${p666_cube}.sh"
       p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/
-source ${p666_cubedir}/${p666_cube_name}"
+cd ${p666_cubedir}/ || cube_check_return
+source ${p666_cubedir}/${p666_cube_name} || cube_check_return"
     else
       p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
       exit 1
     fi
     p666_script_contents="${p666_script_contents}${POSIXCUBE_NEWLINE}cd \${cube_initial_directory}"
   done
+  
   if [ "${p666_commands}" != "" ]; then
     p666_script_contents="${p666_script_contents}
 ${p666_commands}"
@@ -810,42 +999,62 @@ ${p666_commands}"
 #!/bin/sh
 POSIXCUBE_SOURCED=1
 source ${p666_remote_script}
+if [ \$? -ne 0 ] ; then
+  echo "Could not source ${p666_remote_script} script" 1>&2
+  exit 1
+fi
 ${p666_script_contents}
 HEREDOC
 
   chmod +x "${p666_script}"
   
-  # If there are some cubes, then combine uploading the cubes with the exec script
+  p666_upload="${p666_script} "
+
   if [ "${p666_cubes}" != "" ]; then
-    p666_cubes_upload="${p666_script} "
     for p666_cube in ${p666_cubes}; do
       if [ -d "${p666_cube}" ]; then
-        p666_cube_name=`basename "${p666_cube}"`
+        p666_cube_name=$(basename "${p666_cube}")
         if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
           p666_cube=${p666_cube%/}
-          p666_cubes_upload="${p666_cubes_upload} ${p666_cube}"
+          p666_upload="${p666_upload} ${p666_cube}"
         fi
       elif [ -r "${p666_cube}" ]; then
-        p666_cube_name=`basename "${p666_cube}"`
-        p666_cubes_upload="${p666_cubes_upload} ${p666_cube}"
+        p666_cube_name=$(basename "${p666_cube}")
+        p666_upload="${p666_upload} ${p666_cube}"
       elif [ -r "${p666_cube}.sh" ]; then
-        p666_cube_name=`basename "${p666_cube}.sh"`
-        p666_cubes_upload="${p666_cubes_upload} ${p666_cube}.sh"
+        p666_cube_name=$(basename "${p666_cube}.sh")
+        p666_upload="${p666_upload} ${p666_cube}.sh"
       fi
     done
+  fi
+
+  [ ${p666_quiet} -eq 0 ] && p666_printf "Preparing hosts: ${p666_hosts} ...\n"
+  
+  if [ ${p666_skip_init} -eq 0 ]; then
     for p666_host in ${p666_hosts}; do
-      p666_remote_transfer "${p666_cubes_upload}" "${p666_cubedir}/"
-    done
-  else
-    for p666_host in ${p666_hosts}; do
-      p666_remote_transfer "${p666_script}" "${p666_cubedir}/"
+      p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
     done
   fi
+  
+  for p666_host in ${p666_hosts}; do
+    if [ ${p666_skip_init} -eq 0 ]; then
+      p666_remote_transfer "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
+    else
+      p666_remote_transfer "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
+    fi
+  done
 
   for p666_host in ${p666_hosts}; do
     [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
     p666_remote_ssh "source ${p666_cubedir}/${p666_script}"
   done
   
+  for p666_envar_script in ${p666_envar_scripts}; do
+    p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.dec$')
+    if [ ${p666_envar_script_enc_matches} -ne 0 ]; then
+      rm "${p666_envar_script}"
+    fi
+  done
+
   [ ${p666_keep_exec} -eq 0 ] && rm -f "${p666_script}"
 fi

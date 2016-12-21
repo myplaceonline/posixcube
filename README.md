@@ -2,9 +2,9 @@
 
     usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
 
-      posixcube.sh is a (hopefully) POSIX compliant shell script server automation
-      framework. Use consistent APIs for common tasks and package functionality
-      and file templates in cubes (like recipes/playbooks from other frameworks).
+      posixcube.sh is a POSIX compliant shell script server automation framework.
+      Use consistent APIs for common tasks and package functionality and file
+      templates in cubes (like recipes/playbooks from other frameworks).
 
       -?        Help.
       -h HOST   Target host. Option may be specified multiple times. If a host has
@@ -16,6 +16,11 @@
       -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
                 are also specified, cubes are run first.
       -u USER   SSH user. Defaults to ${USER}.
+      -e ENVAR  Shell script with environment variable assignments which is
+                uploaded and executed on each HOST. Option may be specified
+                multiple times. Files ending with .enc will be decrypted
+                temporarily.
+      -p PWD    Password for decrypting .enc ENVAR files.
       -v        Show version information.
       -d        Print debugging information.
       -q        Quiet; minimize output.
@@ -24,7 +29,9 @@
                 posixcube.sh, etc.
       -k        Keep the cube_exec.sh generated script.
       COMMAND   Remote command to run on each HOST. Option may be specified
-                multiple times.
+                multiple times. If no HOSTs are specified, available sub-commands:
+                  edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
+                  show: Decrypt and print ENVAR file.
 
     Description:
 
@@ -37,17 +44,20 @@
       containing the script before execution so that you may reference files
       such as templates using relative paths.
       
+      An ENVAR script is encouraged to use environment variable names of the form
+      cubevar_${uniquecontext}_envar="value".
+      
       Both CUBEs and COMMANDs may execute any of the functions defined in the
       "Public APIs" in the posixcube.sh script. Short descriptions of the functions
       follows. See the source comments above each function for details.
       
       * cube_echo
-          Print ${@} to stdout prefixed with ([`date`] [`hostname`]) and
+          Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and
           suffixed with a newline.
           Example: cube_echo "Hello World"
 
       * cube_printf
-          Print $1 to stdout prefixed with ([`date`] [`hostname`]) and
+          Print $1 to stdout prefixed with ([$(date)] [$(hostname)]) and
           suffixed with a newline (with optional printf arguments in $@).
           Example: cube_printf "Hello World from PID %5s" $$
 
@@ -111,6 +121,10 @@
           are different than $2.
           Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
+      * cube_readlink
+          Echo the absolute path of $1 without any symbolic links.
+          Example: cube_readlink /etc/localtime
+
     Philosophy:
 
       Fail hard and fast. In principle, a well written script would check ${?}
@@ -121,7 +135,8 @@
 
     Frequently Asked Questions:
 
-      * Why is there a long delay before the first remote execution?
+      * Why is there a long delay between "Preparing hosts" and the first remote
+        execution?
       
         You can see details of what's happening with the `-d` flag. By default,
         the script first loops through every host and ensures that ~/posixcubes/
@@ -131,6 +146,11 @@
         the script loops through every host and transfers any CUBEs and a script
         containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
         you'll see the "Executing on HOST..." line and the real execution starts.
+
+    Cube Development:
+
+      Shell scripts don't have scoping, so to reduce the chances of function name
+      conflicts, name functions cube_${cubename}_${function}
 
     Examples:
 
@@ -168,4 +188,12 @@
         For Bash users, install a programmable completion script to support tab
         auto-completion of hosts from SSH configuration files.
 
+      ./posixcube.sh -e production.sh.enc show
+      
+        Decrypt and show the contents of production.sh
+      
+      ./posixcube.sh -e production.sh.enc edit
+      
+        Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
+      
     Source: https://github.com/myplaceonline/posixcube
