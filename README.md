@@ -17,10 +17,11 @@
                 are also specified, cubes are run first.
       -u USER   SSH user. Defaults to ${USER}.
       -e ENVAR  Shell script with environment variable assignments which is
-                uploaded and executed on each HOST. Option may be specified
+                uploaded and sourced on each HOST. Option may be specified
                 multiple times. Files ending with .enc will be decrypted
-                temporarily.
+                temporarily. If not specified, defaults to envars*sh envars*sh.enc
       -p PWD    Password for decrypting .enc ENVAR files.
+      -w PWDF   File that contains the password for decrypting .enc ENVAR files.
       -v        Show version information.
       -d        Print debugging information.
       -q        Quiet; minimize output.
@@ -104,6 +105,10 @@
           Detect operating system and return one of the CUBE_OS_* values.
           Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
+      * cube_shell
+          Detect running shell and return one of the CUBE_SHELL_* values.
+          Example: [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ] && ...
+
       * cube_current_script_name
           echo the basename of the currently executing script.
           Example: script_name=$(cube_current_script_name)
@@ -118,12 +123,17 @@
 
       * cube_set_file_contents
           Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
-          are different than $2.
+          are different than $2. If $2 ends with ".template", first evaluate all
+          ${VARIABLE} expressions (except for \${VARIABLE}).
           Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
       * cube_set_file_contents_string
           Set the contents of $1 to the string $@. Create file if it doesn't exist.
           Example: cube_set_file_contents_string ~/.info "Hello World"
+
+      * cube_expand_parameters
+          echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+          Example: cube_expand_parameters < template > output
 
       * cube_readlink
           Echo the absolute path of $1 without any symbolic links.
@@ -143,7 +153,10 @@
       after each command and either gracefully handle it, or report an error.
       Few people write scripts this well, so we enforce this check (using
       `cube_check_return` within all APIs) and we encourage you to do the same
-      in your scripts with `some_command || cube_check_return`.
+      in your scripts with `some_command || cube_check_return`. We do not use
+      `set -e` because some functions may handle all errors internally (with
+      `cube_check_return` and use a positive return code as a "benign" result
+      (e.g. `cube_set_file_contents`).
 
     Frequently Asked Questions:
 

@@ -18,6 +18,7 @@
 #      All scripts are `source`d together, so exporting is usually unnecessary.
 #   4. Try to keep lines less than 120 characters.
 #   5. Use a separate [ invocation for each single test, combine them with && and ||.
+#   6. Don't use `set -e`. Handle failures consciously (see Philosophy section).
 #
 # References:
 #   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
@@ -49,10 +50,11 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             are also specified, cubes are run first.
   -u USER   SSH user. Defaults to ${USER}.
   -e ENVAR  Shell script with environment variable assignments which is
-            uploaded and executed on each HOST. Option may be specified
+            uploaded and sourced on each HOST. Option may be specified
             multiple times. Files ending with .enc will be decrypted
-            temporarily.
+            temporarily. If not specified, defaults to envars*sh envars*sh.enc
   -p PWD    Password for decrypting .enc ENVAR files.
+  -w PWDF   File that contains the password for decrypting .enc ENVAR files.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
@@ -136,6 +138,10 @@ Description:
       Detect operating system and return one of the CUBE_OS_* values.
       Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
+  * cube_shell
+      Detect running shell and return one of the CUBE_SHELL_* values.
+      Example: [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ] && ...
+
   * cube_current_script_name
       echo the basename of the currently executing script.
       Example: script_name=$(cube_current_script_name)
@@ -150,12 +156,17 @@ Description:
 
   * cube_set_file_contents
       Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
-      are different than $2.
+      are different than $2. If $2 ends with ".template", first evaluate all
+      ${VARIABLE} expressions (except for \${VARIABLE}).
       Example: cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 
   * cube_set_file_contents_string
       Set the contents of $1 to the string $@. Create file if it doesn't exist.
       Example: cube_set_file_contents_string ~/.info "Hello World"
+
+  * cube_expand_parameters
+      echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+      Example: cube_expand_parameters < template > output
 
   * cube_readlink
       Echo the absolute path of $1 without any symbolic links.
@@ -175,7 +186,10 @@ Philosophy:
   after each command and either gracefully handle it, or report an error.
   Few people write scripts this well, so we enforce this check (using
   `cube_check_return` within all APIs) and we encourage you to do the same
-  in your scripts with `some_command || cube_check_return`.
+  in your scripts with `some_command || cube_check_return`. We do not use
+  `set -e` because some functions may handle all errors internally (with
+  `cube_check_return` and use a positive return code as a "benign" result
+  (e.g. `cube_set_file_contents`).
 
 Frequently Asked Questions:
 
@@ -263,6 +277,9 @@ POSIXCUBE_OS_UNKNOWN=-1
 POSIXCUBE_OS_LINUX=1
 POSIXCUBE_OS_MAC_OSX=2
 POSIXCUBE_OS_WINDOWS=3
+
+POSIXCUBE_SHELL_UNKNOWN=-1
+POSIXCUBE_SHELL_BASH=1
 
 # Description:
 #   Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
@@ -445,6 +462,20 @@ cube_operating_system() {
 }
 
 # Description:
+#   Detect current shell and return one of the CUBE_SHELL_* values.
+# Example call:
+#   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then ...
+# Arguments: None
+cube_shell() {
+  # http://stackoverflow.com/questions/3327013/how-to-determine-the-current-shell-im-working-on
+  if [ "$BASH" != "" ]; then
+    echo ${POSIXCUBE_SHELL_BASH}
+  else
+    echo ${POSIXCUBE_SHELL_UNKNOWN}
+  fi
+}
+
+# Description:
 #   Throw an error if there are fewer than $1 arguments.
 # Example call:
 #   cube_check_numargs 2 "${@}"
@@ -468,23 +499,36 @@ cube_check_numargs() {
 #     $1: Action name supported by $2 (e.g. start, stop, restart, enable, etc.)
 #     $2: Service name.
 cube_service() {
-  cube_check_numargs 2 "${@}"
+  cube_check_numargs 1 "${@}"
   if cube_check_command_exists systemctl ; then
-    systemctl $1 $2 || cube_check_return
+    if [ "${1}" = "daemon-reload" ]; then
+      systemctl $1 || cube_check_return
+    else
+      systemctl $1 $2 || cube_check_return
+    fi
   elif cube_check_command_exists service ; then
-    service $2 $1 || cube_check_return
+    if [ "${1}" != "daemon-reload" ]; then
+      service $2 $1 || cube_check_return
+    fi
   else
     cube_throw "Could not find service program"
   fi
-  case "${1}" in
-    stop)
-      cube_service_verb="stopped"
-      ;;
-    *)
-      cube_service_verb="${1}ed"
-      ;;
-  esac
-  cube_echo "Successfully ${cube_service_verb} $2"
+  if [ "${2}" != "" ]; then
+    case "${1}" in
+      stop)
+        cube_service_verb="stopped"
+        ;;
+      enable|disable)
+        cube_service_verb="${1}d"
+        ;;
+      *)
+        cube_service_verb="${1}ed"
+        ;;
+    esac
+    cube_echo "$(echo ${cube_service_verb} | cut -c1 | tr [a-z] [A-Z])$(echo ${cube_service_verb} | cut -c2-) $2"
+  else
+    cube_echo "Executed $1"
+  fi
 }
 
 # Description:
@@ -516,15 +560,47 @@ cube_current_script_abs_path() {
 cube_get_file_size() {
   cube_check_numargs 1 "${@}"
   if cube_check_file_exists "${1}" ; then
-    wc -c <"${1}"
+    wc -c < "${1}"
   else
     cube_throw "Could not find or read file ${1}"
   fi
 }
 
 # Description:
+#   echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+# Example call:
+#   cube_expand_parameters < template > output
+# Arguments: None
+cube_expand_parameters() {
+  # http://stackoverflow.com/a/40167919/5657303
+  cube_expand_parameters_is_bash=0
+  if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
+    cube_expand_parameters_is_bash=1
+  fi
+  
+  # the `||` clause ensures that the last line is read even if it doesn't end with \n
+  while IFS='' read -r line || [ -n "$line" ]; do
+    # Escape ALL chars. that could trigger an expansion..
+    lineEscaped=$(printf %s "$line" | tr '`([$' '\1\2\3\4')
+    
+    # ... then selectively reenable ${ references
+    if [ $cube_expand_parameters_is_bash -eq 1 ]; then
+      lineEscaped=${lineEscaped//$'\4'{/\${}
+    else
+      lineEscaped=$(printf %s "$line" | sed 's/\x04{/\\${/g')
+    fi
+    
+    # Finally, escape embedded double quotes to preserve them.
+    lineEscaped=${lineEscaped//\"/\\\"}
+    
+    eval "printf '%s\n' \"$lineEscaped\"" | tr '\1\2\3\4' '`([$'
+  done
+}
+
+# Description:
 #   Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
-#   are different than $2.
+#   are different than $2. If $2 ends with ".template" then first process
+#   the file with `cube_expand_parameters`.
 # Example call:
 #   cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 # Arguments:
@@ -536,11 +612,33 @@ cube_set_file_contents() {
   cube_check_numargs 2 "${@}"
   cube_set_file_contents_target_file="$1"; shift
   cube_set_file_contents_input_file="$1"; shift
+
+  cube_set_file_contents_debug="${cube_set_file_contents_input_file}"
   
   cube_set_file_contents_needs_replace=0
+  cube_set_file_contents_input_file_needs_remove=0
   
   if ! cube_check_file_exists "${cube_set_file_contents_input_file}" ; then
     cube_throw "Could not find or read input ${cube_set_file_contents_input_file}"
+  fi
+  
+  cube_set_file_contents_input_file_is_template=$(expr "${cube_set_file_contents_input_file}" : '.*\.template$')
+  if [ ${cube_set_file_contents_input_file_is_template} -ne 0 ]; then
+    
+    if cube_check_command_exists perl ; then
+      cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
+      cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
+
+      # awk, perl, sed, envsubst, etc. can do this easily but would require exported envars
+      # perl -pe 's/([^\\]|^)\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}/$1.$ENV{$2}/eg' < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
+      # http://stackoverflow.com/questions/415677/how-to-replace-placeholders-in-a-text-file
+      # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
+      cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
+      
+      cube_set_file_contents_input_file_needs_remove=0
+    else
+      cube_throw "Perl not found on PATH"
+    fi
   fi
   
   if cube_check_file_exists "${cube_set_file_contents_target_file}" ; then
@@ -563,8 +661,11 @@ cube_set_file_contents() {
   fi
 
   if [ ${cube_set_file_contents_needs_replace} -eq 1 ] ; then
-    cube_echo "Updating file contents of ${cube_set_file_contents_target_file} with ${cube_set_file_contents_input_file}"
+    cube_echo "Updating file contents of ${cube_set_file_contents_target_file} with ${cube_set_file_contents_debug}"
     cp "${cube_set_file_contents_input_file}" "${cube_set_file_contents_target_file}" || cube_check_return
+    if [ ${cube_set_file_contents_input_file_needs_remove} -eq 1 ] ; then
+      rm -f "${cube_set_file_contents_input_file}" || cube_check_return
+    fi
     return 0
   else
     return 1
@@ -607,7 +708,7 @@ cube_set_file_contents_string() {
   
   cube_set_file_contents_tmp="$(cube_tmpdir)/tmpcontents_$(cube_random_number 10000)"
   echo "${@}" > "${cube_set_file_contents_tmp}"
-  cube_set_file_contents "${cube_set_file_contents_target_file}" "${cube_set_file_contents_tmp}"
+  cube_set_file_contents "${cube_set_file_contents_target_file}" "${cube_set_file_contents_tmp}" "from string"
   cube_set_file_contents_result=$?
   rm "${cube_set_file_contents_tmp}"
   return ${cube_set_file_contents_result}
@@ -640,6 +741,21 @@ cube_readlink() {
     
     echo ${cube_readlink_path}
   #fi
+}
+
+# Description:
+#   Read stdin into ${cube_read_heredoc_result}
+# Example call:
+#   cube_read_heredoc <<'HEREDOC'
+#     `([$\{
+#   HEREDOC
+#   echo "${cube_read_heredoc_result}"
+# Arguments: None
+cube_read_heredoc() {
+  cube_read_heredoc_result=""
+  while IFS='\n' read -r cube_read_heredoc_line; do
+    cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
+  done
 }
 
 ################################
@@ -770,7 +886,7 @@ HEREDOC
   # getopts processing based on http://stackoverflow.com/a/14203146/5657303
   OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
-  while getopts "?vdqiskh:u:c:e:p:" p666_opt; do
+  while getopts "?vdqiskh:u:c:e:p:w:" p666_opt; do
     case "$p666_opt" in
     \?)
       p666_show_usage
@@ -831,13 +947,24 @@ HEREDOC
     p)
       p666_envar_scripts_password="${OPTARG}"
       ;;
+    w)
+      p666_envar_scripts_password="$(cat ${OPTARG})" || cube_check_return
+      ;;
     esac
   done
 
   shift $((${OPTIND}-1))
 
   [ "$1" = "--" ] && shift
+  
+  if [ "${p666_envar_scripts}" = "" ]; then
+    p666_envar_scripts="$(ls -1 envars*sh envars*sh.enc | paste -sd ' ' -)"
+  fi
 
+  if [ "${p666_envar_scripts}" != "" ]; then
+    p666_printf "Using ENVAR files: ${p666_envar_scripts}\n"
+  fi
+  
   p666_commands="${@}"
 
   if [ "${p666_hosts}" = "" ]; then
@@ -846,12 +973,10 @@ HEREDOC
       case "${1}" in
         edit|show)
           if [ "${p666_envar_scripts}" != "" ]; then
-            p666_envar_scripts_space=$(expr ${p666_envar_scripts} : '.* .*')
-            if [ ${p666_envar_scripts_space} -eq 0 ]; then
-              p666_envar_scripts_enc=$(expr ${p666_envar_scripts} : '.*enc$')
+            for p666_envar_script in ${p666_envar_scripts}; do
+              p666_envar_scripts_enc=$(expr ${p666_envar_script} : '.*enc$')
               if [ ${p666_envar_scripts_enc} -ne 0 ]; then
                 if cube_check_command_exists gpg ; then
-                  p666_envar_script="${p666_envar_scripts}"
                   p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
                   
                   if [ "${p666_envar_scripts_password}" = "" ]; then
@@ -885,20 +1010,16 @@ HEREDOC
                   esac
                   
                   rm -f "${p666_envar_script_new}" || cube_check_return
-                  
-                  exit 0
                 else
                   p666_printf_error "gpg program not found on the PATH"
                   p666_show_usage
                 fi
               else
-                p666_printf_error "Encrypted ENVAR file must end in .enc extension."
-                p666_show_usage
+                cat "${p666_envar_script}" | grep -v "^#!/bin/sh$"
               fi
-            else
-              p666_printf_error "Edit sub-COMMAND takes a single -e ENVAR file."
-              p666_show_usage
-            fi
+            done
+            
+            exit 0
           else
             p666_printf_error "Edit sub-COMMAND without -e ENVAR file."
             p666_show_usage
