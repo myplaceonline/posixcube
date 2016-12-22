@@ -122,6 +122,11 @@ Description:
       Run the $1 action on the $2 service.
       Example: cube_service start crond
 
+  * cube_package
+      Run the $1 action on the $2 service. Implicitly passes the the parameter
+      to say yes to questions.
+      Example: cube_package install python
+
   * cube_check_command_exists
       Check if $1 command or function exists in the current context.
       Example: cube_check_command_exists systemctl
@@ -307,8 +312,7 @@ cube_echo() {
 #   Optional: 
 #     $2: printf arguments 
 cube_printf() {
-  cube_printf_str=$1
-  shift
+  cube_printf_str=$1; shift
   printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
 }
 
@@ -338,8 +342,7 @@ cube_error_echo() {
 #   Optional: 
 #     $2: printf arguments 
 cube_error_printf() {
-  cube_error_printf_str=$1
-  shift
+  cube_error_printf_str=$1; shift
   printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
 }
 
@@ -484,8 +487,7 @@ cube_shell() {
 #     $1: String to print (printf-compatible)
 #     $@: Arguments to check
 cube_check_numargs() {
-  cube_check_numargs_expected=$1
-  shift
+  cube_check_numargs_expected=$1; shift
   [ ${#} -lt ${cube_check_numargs_expected} ] && cube_throw "Expected ${cube_check_numargs_expected} arguments, received ${#}."
   return 0
 }
@@ -528,6 +530,30 @@ cube_service() {
     cube_echo "$(echo ${cube_service_verb} | cut -c1 | tr [a-z] [A-Z])$(echo ${cube_service_verb} | cut -c2-) $2"
   else
     cube_echo "Executed $1"
+  fi
+}
+
+# Description:
+#   Run the $1 action for ${@}. Implicitly passes the the parameter to say yes
+#   to questions.
+# Example call:
+#   cube_package install python
+# Arguments:
+#   Required:
+#     $1: Action supported by the package manager (e.g. install, remove, etc.)
+#     $@: Remaining arguments
+cube_package() {
+  cube_check_numargs 1 "${@}"
+  cube_package_action="$1"; shift
+  
+  if cube_check_command_exists dnf ; then
+    cube_echo "Executing dnf -y ${cube_package_action} ${@}"
+    dnf -y "${cube_package_action}" "${@}" || cube_check_return
+  elif cube_check_command_exists yum ; then
+    cube_echo "Executing yum -y ${cube_package_action} ${@}"
+    yum -y "${cube_package_action}" "${@}" || cube_check_return
+  else
+    cube_throw "Could not find package program"
   fi
 }
 

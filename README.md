@@ -89,6 +89,11 @@
           Run the $1 action on the $2 service.
           Example: cube_service start crond
 
+      * cube_package
+          Run the $1 action on the $2 service. Implicitly passes the the parameter
+          to say yes to questions.
+          Example: cube_package install python
+
       * cube_check_command_exists
           Check if $1 command or function exists in the current context.
           Example: cube_check_command_exists systemctl
