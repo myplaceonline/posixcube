@@ -770,15 +770,20 @@ cube_readlink() {
 # Description:
 #   Read stdin into ${cube_read_heredoc_result}
 # Example call:
-#   cube_read_heredoc <<'HEREDOC'
-#     `([$\{
+#   cube_read_heredoc <<'HEREDOC'; cubevar_app_str="${cube_read_heredoc_result}"
+#     `([$\{\
 #   HEREDOC
-#   echo "${cube_read_heredoc_result}"
 # Arguments: None
 cube_read_heredoc() {
+  cube_read_heredoc_first=1
   cube_read_heredoc_result=""
   while IFS='\n' read -r cube_read_heredoc_line; do
-    cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
+    if [ ${cube_read_heredoc_first} -eq 1 ]; then
+      cube_read_heredoc_result="${cube_read_heredoc_line}"
+      cube_read_heredoc_first=0
+    else
+      cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
+    fi
   done
 }
 
