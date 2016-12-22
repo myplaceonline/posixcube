@@ -123,7 +123,7 @@ Description:
       Example: cube_service start crond
 
   * cube_package
-      Run the $1 action on the $2 service. Implicitly passes the the parameter
+      Pass $@ to the package manager. Implicitly passes the the parameter
       to say yes to questions.
       Example: cube_package install python
 
@@ -534,24 +534,22 @@ cube_service() {
 }
 
 # Description:
-#   Run the $1 action for ${@}. Implicitly passes the the parameter to say yes
-#   to questions.
+#   Pass $@ to the package manager. Implicitly passes the the parameter
+#   to say yes to questions.
 # Example call:
 #   cube_package install python
 # Arguments:
 #   Required:
-#     $1: Action supported by the package manager (e.g. install, remove, etc.)
-#     $@: Remaining arguments
+#     $@: Arguments to the package manager.
 cube_package() {
   cube_check_numargs 1 "${@}"
-  cube_package_action="$1"; shift
   
   if cube_check_command_exists dnf ; then
-    cube_echo "Executing dnf -y ${cube_package_action} ${@}"
-    dnf -y "${cube_package_action}" "${@}" || cube_check_return
+    cube_echo "Executing dnf -y ${@}"
+    dnf -y "${@}" || cube_check_return
   elif cube_check_command_exists yum ; then
-    cube_echo "Executing yum -y ${cube_package_action} ${@}"
-    yum -y "${cube_package_action}" "${@}" || cube_check_return
+    cube_echo "Executing yum -y ${@}"
+    yum -y "${@}" || cube_check_return
   else
     cube_throw "Could not find package program"
   fi

@@ -90,7 +90,7 @@
           Example: cube_service start crond
 
       * cube_package
-          Run the $1 action on the $2 service. Implicitly passes the the parameter
+          Pass $@ to the package manager. Implicitly passes the the parameter
           to say yes to questions.
           Example: cube_package install python
 
