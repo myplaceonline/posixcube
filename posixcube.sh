@@ -759,6 +759,8 @@ cube_set_file_contents() {
     cube_throw "Could not find or read input ${cube_set_file_contents_input_file}"
   fi
   
+  cube_ensure_directory "$(dirname "${cube_set_file_contents_target_file}")"
+  
   cube_set_file_contents_input_file_is_template=$(expr "${cube_set_file_contents_input_file}" : '.*\.template$')
   if [ ${cube_set_file_contents_input_file_is_template} -ne 0 ]; then
     
