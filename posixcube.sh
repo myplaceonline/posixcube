@@ -55,6 +55,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             temporarily. If not specified, defaults to envars*sh envars*sh.enc
   -p PWD    Password for decrypting .enc ENVAR files.
   -w PWDF   File that contains the password for decrypting .enc ENVAR files.
+            Defaults to ~/.posixcube.pwd
   -r ROLE   Role name. Option may be specified multiple times.
   -o P=V    Set the specified parameter P with the value V. Do not put double
             quotes around V. If V contains *, try to find matching hosts per
@@ -1283,6 +1284,11 @@ HEREDOC
       ;;
     esac
   done
+  
+  # If no password specified, check for the ~/.posixcube.pwd file
+  if [ "${p666_envar_scripts_password}" = "" ] && [ -r ~/.posixcube.pwd ]; then
+    p666_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
+  fi
 
   shift $((${OPTIND}-1))
 
