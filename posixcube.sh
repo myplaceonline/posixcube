@@ -17,8 +17,9 @@
 #   3. Use lower-case variables unless an envar may be used by other scripts [4].
 #      All scripts are `source`d together, so exporting is usually unnecessary.
 #   4. Try to keep lines less than 120 characters.
-#   5. Use a separate [ invocation for each single test, combine them with && and ||.
-#   6. Don't use `set -e`. Handle failures consciously (see Philosophy section).
+#   5. Use [ for tests instead of [[ and use = instead of ==.
+#   6. Use a separate [ invocation for each single test, combine them with && and ||.
+#   7. Don't use `set -e`. Handle failures consciously (see Philosophy section).
 #
 # References:
 #   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
@@ -854,7 +855,7 @@ cube_set_file_contents_string() {
   cube_check_numargs 2 "${@}"
   cube_set_file_contents_target_file="$1"; shift
   
-  cube_set_file_contents_tmp="$(cube_tmpdir)/tmpcontents_$(cube_random_number 10000)"
+  cube_set_file_contents_tmp="$(cube_tmpdir)/tmpcontents_$(cube_random_number 10000).template"
   echo "${@}" > "${cube_set_file_contents_tmp}"
   cube_set_file_contents "${cube_set_file_contents_target_file}" "${cube_set_file_contents_tmp}" "from string"
   cube_set_file_contents_result=$?
@@ -1162,7 +1163,7 @@ HEREDOC
         chmod +x ${p666_autocomplete_file}
         p666_func_result=$?
         if [ ${p666_func_result} -eq 0 ]; then
-          source ${p666_autocomplete_file}
+          . ${p666_autocomplete_file}
           p666_func_result=$?
           if [ ${p666_func_result} -eq 0 ]; then
             p666_printf "Installed Bash programmable completion script into ${p666_autocomplete_file}\n"
@@ -1175,7 +1176,7 @@ HEREDOC
       else
         p666_printf "Could not create ${p666_autocomplete_file}\n"
         p666_printf "You may need to try with sudo. For example:\n"
-        p666_printf "  sudo $(cube_current_script_abs_path) -i && source ${p666_autocomplete_file}\n"
+        p666_printf "  sudo $(cube_current_script_abs_path) -i && . ${p666_autocomplete_file}\n"
         p666_printf "You only need to source the command the first time. Subsequent shells will automatically source it.\n"
       fi
     else
@@ -1295,7 +1296,7 @@ HEREDOC
   [ "$1" = "--" ] && shift
   
   if [ "${p666_envar_scripts}" = "" ]; then
-    p666_envar_scripts="$(ls -1 envars*sh envars*sh.enc | paste -sd ' ' -)"
+    p666_envar_scripts="$(ls -1 envars*sh envars*sh.enc 2>/dev/null | paste -sd ' ' -)"
   fi
 
   if [ "${p666_envar_scripts}" != "" ]; then
@@ -1460,7 +1461,7 @@ HEREDOC
     
     p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-source ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
+. ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
 
     if [ ${p666_envar_script_remove} -eq 1 ]; then
       p666_script_contents="${p666_script_contents}
@@ -1482,7 +1483,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return
+. ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
@@ -1499,7 +1500,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-source ${p666_cubedir}/${p666_cube_name} || cube_check_return
+. ${p666_cubedir}/${p666_cube_name} || cube_check_return
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
@@ -1512,7 +1513,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-source ${p666_cubedir}/${p666_cube_name} || cube_check_return
+. ${p666_cubedir}/${p666_cube_name} || cube_check_return
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
@@ -1533,7 +1534,7 @@ ${p666_commands}"
   cat <<HEREDOC > "${p666_script}"
 #!/bin/sh
 POSIXCUBE_SOURCED=1
-source ${p666_remote_script}
+. ${p666_remote_script}
 if [ \$? -ne 0 ] ; then
   echo "Could not source ${p666_remote_script} script" 1>&2
   exit 1
@@ -1591,7 +1592,7 @@ HEREDOC
 
   for p666_host in ${p666_hosts}; do
     [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
-    p666_remote_ssh "source ${p666_cubedir}/${p666_script}" || exit $?
+    p666_remote_ssh ". ${p666_cubedir}/${p666_script}" || exit $?
   done
   
   for p666_envar_script in ${p666_envar_scripts}; do
