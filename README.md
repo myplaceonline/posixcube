@@ -93,20 +93,21 @@
       Shell scripts don't have scoping, so to reduce the chances of function name
       conflicts, name functions cube_${cubename}_${function}
 
-    Examples:
+    Examples (assuming posixcube.sh directory is on ${PATH}, or you may execute
+              it using an absolute path):
 
-      ./posixcube.sh -h socrates uptime
+      posixcube.sh -h socrates uptime
       
         Run the `uptime` command on host `socrates`. This is not very different
         from ssh ${USER}@socrates uptime, except that COMMANDs (`uptime`) have
         access to the cube_* public functions.
       
-      ./posixcube.sh -h socrates -c test.sh
+      posixcube.sh -h socrates -c test.sh
       
         Run the `test.sh` script (CUBE) on host `socrates`. The script has
         access to the cube_* public functions.
       
-      ./posixcube.sh -h socrates -c test
+      posixcube.sh -h socrates -c test
       
         Upload the entire `test` directory (CUBE) to the host `socrates` and
         then execute the `test.sh` script within that directory (the name
@@ -114,26 +115,26 @@
         allows for easily packaging other scripts and resources needed by
         `test.sh`.
       
-      ./posixcube.sh -u root -h socrates -h seneca uptime
+      posixcube.sh -u root -h socrates -h seneca uptime
       
         Run the `uptime` command on hosts `socrates` and `seneca`
         as the user `root`.
       
-      ./posixcube.sh -h web*.test.com uptime
+      posixcube.sh -h web*.test.com uptime
       
         Run the `uptime` command on all hosts matching the regular expression
         web.*.test.com in the SSH configuration files.
       
-      sudo ./posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
+      sudo ${PATH_TO}/posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
       
         For Bash users, install a programmable completion script to support tab
         auto-completion of hosts from SSH configuration files.
 
-      ./posixcube.sh -e production.sh.enc show
+      posixcube.sh -e production.sh.enc show
       
         Decrypt and show the contents of production.sh
       
-      ./posixcube.sh -e production.sh.enc edit
+      posixcube.sh -e production.sh.enc edit
       
         Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
 
