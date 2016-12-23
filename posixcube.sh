@@ -87,7 +87,90 @@ Description:
   
   Both CUBEs and COMMANDs may execute any of the functions defined in the
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
-  follows. See the source comments above each function for details.
+  is in the APIs section below. See the source comments above each function
+  for details.
+  
+Philosophy:
+
+  Fail hard and fast. In principle, a well written script would check ${?}
+  after each command and either gracefully handle it, or report an error.
+  Few people write scripts this well, so we enforce this check (using
+  `cube_check_return` within all APIs) and we encourage you to do the same
+  in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
+  APIs are guaranteed to do their own checks, so you don't have to do this
+  for those calls; however, note that if you're executing a cube_* API in a
+  sub-shell, although any failures will be reported by cube_check_return,
+  the script will continue unless you also check the return of the sub-shell.
+  For example: $(cube_readlink /etc/localtime) || cube_check_return
+  
+  We do not use `set -e` because some functions may handle all errors
+  internally (with `cube_check_return` and use a positive return code as a
+  "benign" result (e.g. `cube_set_file_contents`).
+
+Frequently Asked Questions:
+
+  * Why is there a long delay between "Preparing hosts" and the first remote
+    execution?
+  
+    You can see details of what's happening with the `-d` flag. By default,
+    the script first loops through every host and ensures that ~/posixcubes/
+    exists, then it transfers itself to the remote host. These two actions
+    may be skipped with the `-s` parameter if you've already run the script
+    at least once and your version of this script hasn't been updated. Next,
+    the script loops through every host and transfers any CUBEs and a script
+    containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
+    you'll see the "Executing on HOST..." line and the real execution starts.
+
+Cube Development:
+
+  Shell scripts don't have scoping, so to reduce the chances of function name
+  conflicts, name functions cube_${cubename}_${function}
+
+Examples:
+
+  ./posixcube.sh -h socrates uptime
+  
+    Run the `uptime` command on host `socrates`. This is not very different
+    from ssh ${USER}@socrates uptime, except that COMMANDs (`uptime`) have
+    access to the cube_* public functions.
+  
+  ./posixcube.sh -h socrates -c test.sh
+  
+    Run the `test.sh` script (CUBE) on host `socrates`. The script has
+    access to the cube_* public functions.
+  
+  ./posixcube.sh -h socrates -c test
+  
+    Upload the entire `test` directory (CUBE) to the host `socrates` and
+    then execute the `test.sh` script within that directory (the name
+    of the script is expected to be the same as the name of the CUBE). This
+    allows for easily packaging other scripts and resources needed by
+    `test.sh`.
+  
+  ./posixcube.sh -u root -h socrates -h seneca uptime
+  
+    Run the `uptime` command on hosts `socrates` and `seneca`
+    as the user `root`.
+  
+  ./posixcube.sh -h web*.test.com uptime
+  
+    Run the `uptime` command on all hosts matching the regular expression
+    web.*.test.com in the SSH configuration files.
+  
+  sudo ./posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
+  
+    For Bash users, install a programmable completion script to support tab
+    auto-completion of hosts from SSH configuration files.
+
+  ./posixcube.sh -e production.sh.enc show
+  
+    Decrypt and show the contents of production.sh
+  
+  ./posixcube.sh -e production.sh.enc edit
+  
+    Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
+
+API:
   
   * cube_echo
       Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and
@@ -193,86 +276,47 @@ Description:
       Echo a temporary directory
       Example: cube_tmpdir
 
-Philosophy:
+  * cube_total_memory
+      Echo total system memory in bytes
+      Example: cube_total_memory
 
-  Fail hard and fast. In principle, a well written script would check ${?}
-  after each command and either gracefully handle it, or report an error.
-  Few people write scripts this well, so we enforce this check (using
-  `cube_check_return` within all APIs) and we encourage you to do the same
-  in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
-  APIs are guaranteed to do their own checks, so you don't have to do this
-  for those calls; however, note that if you're executing a cube_* API in a
-  sub-shell, although any failures will be reported by cube_check_return,
-  the script will continue unless you also check the return of the sub-shell.
-  For example: $(cube_readlink /etc/localtime) || cube_check_return
-  
-  We do not use `set -e` because some functions may handle all errors
-  internally (with `cube_check_return` and use a positive return code as a
-  "benign" result (e.g. `cube_set_file_contents`).
+  * cube_ensure_directory
+      Ensure directory $1 exists
+      Example: cube_ensure_directory ~/.ssh/
 
-Frequently Asked Questions:
+  * cube_ensure_file
+      Ensure file $1 exists
+      Example: cube_ensure_file ~/.ssh/authorized_keys
 
-  * Why is there a long delay between "Preparing hosts" and the first remote
-    execution?
-  
-    You can see details of what's happening with the `-d` flag. By default,
-    the script first loops through every host and ensures that ~/posixcubes/
-    exists, then it transfers itself to the remote host. These two actions
-    may be skipped with the `-s` parameter if you've already run the script
-    at least once and your version of this script hasn't been updated. Next,
-    the script loops through every host and transfers any CUBEs and a script
-    containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
-    you'll see the "Executing on HOST..." line and the real execution starts.
+  * cube_pushd
+      Equivalent to `pushd` with $1
+      Example: cube_pushd ~/.ssh/
 
-Cube Development:
+  * cube_popd
+      Equivalent to `popd`
+      Example: cube_popd
 
-  Shell scripts don't have scoping, so to reduce the chances of function name
-  conflicts, name functions cube_${cubename}_${function}
+  * cube_has_role
+      Return true if the role $1 is set.
+      Example: cube_has_role "database_backup"
 
-Examples:
+  * cube_file_contains
+      Check if the file $1 contains $2
+      Example: cube_file_contains /etc/fstab nfsmount
 
-  ./posixcube.sh -h socrates uptime
-  
-    Run the `uptime` command on host `socrates`. This is not very different
-    from ssh ${USER}@socrates uptime, except that COMMANDs (`uptime`) have
-    access to the cube_* public functions.
-  
-  ./posixcube.sh -h socrates -c test.sh
-  
-    Run the `test.sh` script (CUBE) on host `socrates`. The script has
-    access to the cube_* public functions.
-  
-  ./posixcube.sh -h socrates -c test
-  
-    Upload the entire `test` directory (CUBE) to the host `socrates` and
-    then execute the `test.sh` script within that directory (the name
-    of the script is expected to be the same as the name of the CUBE). This
-    allows for easily packaging other scripts and resources needed by
-    `test.sh`.
-  
-  ./posixcube.sh -u root -h socrates -h seneca uptime
-  
-    Run the `uptime` command on hosts `socrates` and `seneca`
-    as the user `root`.
-  
-  ./posixcube.sh -h web*.test.com uptime
-  
-    Run the `uptime` command on all hosts matching the regular expression
-    web.*.test.com in the SSH configuration files.
-  
-  sudo ./posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
-  
-    For Bash users, install a programmable completion script to support tab
-    auto-completion of hosts from SSH configuration files.
+  * cube_interface_ipv4_address
+      Echo the IPv4 address of interface $1
+      Example: cube_interface_ipv4_address eth0
 
-  ./posixcube.sh -e production.sh.enc show
-  
-    Decrypt and show the contents of production.sh
-  
-  ./posixcube.sh -e production.sh.enc edit
-  
-    Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
-  
+  * cube_prompt
+      Prompt the question $1 followed by " (y/N)" and prompt for an answer.
+      A blank string answer is equivalent to No. Return true if yes, false otherwise.
+      Example: cube_prompt "Are you sure?"
+
+  * cube_hostname
+      Echo full hostname.
+      Example: cube_hostname
+
 Source: https://github.com/myplaceonline/posixcube
 
 HEREDOC
@@ -922,9 +966,9 @@ cube_ensure_file() {
 }
 
 # Description:
-#   Equivalent to `pushd`
+#   Equivalent to `pushd` with $1
 # Example call:
-#   pushd ~/.ssh/
+#   cube_pushd ~/.ssh/
 # Arguments:
 #   Requires;
 #     $1: Directory
@@ -941,7 +985,7 @@ cube_pushd() {
 # Description:
 #   Equivalent to `popd`
 # Example call:
-#   popd
+#   cube_popd
 # Arguments: None
 cube_popd() {
   if cube_check_command_exists popd ; then
