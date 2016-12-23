@@ -55,6 +55,10 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             temporarily. If not specified, defaults to envars*sh envars*sh.enc
   -p PWD    Password for decrypting .enc ENVAR files.
   -w PWDF   File that contains the password for decrypting .enc ENVAR files.
+  -r ROLE   Role name. Option may be specified multiple times.
+  -o P=V    Set the specified parameter P with the value V. Do not put double
+            quotes around V. If V contains *, try to find matching hosts per
+            the -h algorithm. Option may be specified multiple times.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
@@ -117,6 +121,10 @@ Description:
   * cube_check_numargs
       Call cube_throw if there are less than $1 arguments in $@
       Example: cube_check_numargs 2 "${@}"
+
+  * cube_append_str
+      Echo $1 with $2 appended after a space if $1 was not blank.
+      Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
   * cube_service
       Run the $1 action on the $2 service.
@@ -191,10 +199,16 @@ Philosophy:
   after each command and either gracefully handle it, or report an error.
   Few people write scripts this well, so we enforce this check (using
   `cube_check_return` within all APIs) and we encourage you to do the same
-  in your scripts with `some_command || cube_check_return`. We do not use
-  `set -e` because some functions may handle all errors internally (with
-  `cube_check_return` and use a positive return code as a "benign" result
-  (e.g. `cube_set_file_contents`).
+  in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
+  APIs are guaranteed to do their own checks, so you don't have to do this
+  for those calls; however, note that if you're executing a cube_* API in a
+  sub-shell, although any failures will be reported by cube_check_return,
+  the script will continue unless you also check the return of the sub-shell.
+  For example: $(cube_readlink /etc/localtime) || cube_check_return
+  
+  We do not use `set -e` because some functions may handle all errors
+  internally (with `cube_check_return` and use a positive return code as a
+  "benign" result (e.g. `cube_set_file_contents`).
 
 Frequently Asked Questions:
 
@@ -269,14 +283,21 @@ HEREDOC
 # Public APIs #
 ###############
 
-# Constants
 POSIXCUBE_VERSION=0.1
+POSIXCUBE_DEBUG=0
 POSIXCUBE_COLOR_RESET="\x1B[0m"
 POSIXCUBE_COLOR_RED="\x1B[31m"
 POSIXCUBE_COLOR_GREEN="\x1B[32m"
+POSIXCUBE_COLOR_YELLOW="\x1B[33m"
+POSIXCUBE_COLOR_BLUE="\x1B[34m"
+POSIXCUBE_COLOR_PURPLE="\x1B[35m"
+POSIXCUBE_COLOR_CYAN="\x1B[36m"
+POSIXCUBE_COLOR_WHITE="\x1B[37m"
 
 POSIXCUBE_NEWLINE="
 "
+POSIXCUBE_CUBE_NAME=""
+POSIXCUBE_CUBE_NAME_WITH_PREFIX=""
 
 POSIXCUBE_OS_UNKNOWN=-1
 POSIXCUBE_OS_LINUX=1
@@ -295,7 +316,7 @@ POSIXCUBE_SHELL_BASH=1
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
 # Arguments: ${@} passed to echo
 cube_echo() {
-  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] "
+  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] "
   echo "${@}"
 }
 
@@ -313,7 +334,7 @@ cube_echo() {
 #     $2: printf arguments 
 cube_printf() {
   cube_printf_str=$1; shift
-  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}] ${cube_printf_str}\n" "${@}"
 }
 
 # Description:
@@ -325,7 +346,7 @@ cube_printf() {
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
 # Arguments: ${@} passed to echo
 cube_error_echo() {
-  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   echo "${@}" 1>&2
 }
 
@@ -343,7 +364,7 @@ cube_error_echo() {
 #     $2: printf arguments 
 cube_error_printf() {
   cube_error_printf_str=$1; shift
-  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
 }
 
 # Description:
@@ -402,7 +423,31 @@ cube_throw() {
 # Arguments: None
 cube_check_return() {
   cube_check_return_val=${?}
-  [ ${cube_check_return_val} -ne 0 ] && cube_throw "Previous command failed with code ${cube_check_return_val}"
+  [ ${cube_check_return_val} -ne 0 ] && cube_throw "Previous command failed with code ${cube_check_return_val} ${@}"
+}
+
+# Description:
+#   Echo $1 with $2 appended after a space if $1 was not blank.
+# Example call:
+#   cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
+# Arguments:
+#   Required:
+#     $1: Original string
+#     $2: Strings to append
+#   Optional:
+#     $3: Delimeter
+cube_append_str() {
+  cube_check_numargs 1 "${@}"
+  
+  if [ "${1}" = "" ]; then
+    echo "${2}"
+  else
+    if [ "${3}" = "" ]; then
+      echo "${1} ${2}"
+    else
+      echo "${1}${3}${2}"
+    fi
+  fi
 }
 
 # Description:
@@ -527,7 +572,7 @@ cube_service() {
         cube_service_verb="${1}ed"
         ;;
     esac
-    cube_echo "$(echo ${cube_service_verb} | cut -c1 | tr [a-z] [A-Z])$(echo ${cube_service_verb} | cut -c2-) $2"
+    cube_echo "$(echo ${cube_service_verb} | cut -c1 | tr [a-z] [A-Z])$(echo ${cube_service_verb} | cut -c2-) $2 service"
   else
     cube_echo "Executed $1"
   fi
@@ -597,27 +642,50 @@ cube_get_file_size() {
 # Arguments: None
 cube_expand_parameters() {
   # http://stackoverflow.com/a/40167919/5657303
+  
   cube_expand_parameters_is_bash=0
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
-    cube_expand_parameters_is_bash=1
+    # No win from using regex in parameter expansion because we can't use backreferences to make sure we don't
+    # unescape
+    cube_expand_parameters_is_bash=0
+    #cube_expand_parameters_is_bash=1
   fi
   
   # the `||` clause ensures that the last line is read even if it doesn't end with \n
-  while IFS='' read -r line || [ -n "$line" ]; do
-    # Escape ALL chars. that could trigger an expansion..
-    lineEscaped=$(printf %s "$line" | tr '`([$' '\1\2\3\4')
+  while IFS='' read -r cube_expand_parameters_line || [ -n "${cube_expand_parameters_line}" ]; do
+    # Escape any characters that might trip up eval
+    cube_expand_parameters_line_escaped=$(printf %s "${cube_expand_parameters_line}" | tr '`([$\\"' '\1\2\3\4\5\6')
     
-    # ... then selectively reenable ${ references
+    # Then re-enable un-escaped ${ references
     if [ $cube_expand_parameters_is_bash -eq 1 ]; then
-      lineEscaped=${lineEscaped//$'\4'{/\${}
+      cube_expand_parameters_line_escaped=${cube_expand_parameters_line_escaped//$'\4'{/\${}
     else
-      lineEscaped=$(printf %s "$line" | sed 's/\x04{/\\${/g')
+      cube_expand_parameters_line_escaped=$(printf %s "${cube_expand_parameters_line_escaped}" | sed 's/\([^\x05]\)\x04{/\1${/g' | sed 's/^\x04{/${/g')
     fi
     
-    # Finally, escape embedded double quotes to preserve them.
-    lineEscaped=${lineEscaped//\"/\\\"}
+    cube_expand_parameters_output=$(eval "printf '%s\n' \"${cube_expand_parameters_line_escaped}\"") || cube_check_return "${cube_expand_parameters_line_escaped}"
     
-    eval "printf '%s\n' \"$lineEscaped\"" | tr '\1\2\3\4' '`([$'
+    echo "${cube_expand_parameters_output}" | tr '\1\2\3\4\5\6' '`([$\\"'
+  done
+}
+
+# Description:
+#   Read stdin into ${cube_read_heredoc_result}
+# Example call:
+#   cube_read_heredoc <<'HEREDOC'; cubevar_app_str="${cube_read_heredoc_result}"
+#     `([$\{\
+#   HEREDOC
+# Arguments: None
+cube_read_heredoc() {
+  cube_read_heredoc_first=1
+  cube_read_heredoc_result=""
+  while IFS='\n' read -r cube_read_heredoc_line; do
+    if [ ${cube_read_heredoc_first} -eq 1 ]; then
+      cube_read_heredoc_result="${cube_read_heredoc_line}"
+      cube_read_heredoc_first=0
+    else
+      cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
+    fi
   done
 }
 
@@ -653,11 +721,19 @@ cube_set_file_contents() {
       cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
       cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
 
+      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+        cube_echo "Expanding parameters of ${cube_set_file_contents_input_file_original}"
+      fi
+      
       # awk, perl, sed, envsubst, etc. can do this easily but would require exported envars
       # perl -pe 's/([^\\]|^)\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}/$1.$ENV{$2}/eg' < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
       # http://stackoverflow.com/questions/415677/how-to-replace-placeholders-in-a-text-file
       # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
       cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
+      
+      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+        cube_echo "Expansion complete"
+      fi
       
       cube_set_file_contents_input_file_needs_remove=0
     else
@@ -768,24 +844,202 @@ cube_readlink() {
 }
 
 # Description:
-#   Read stdin into ${cube_read_heredoc_result}
+#   Echo total system memory in bytes
 # Example call:
-#   cube_read_heredoc <<'HEREDOC'; cubevar_app_str="${cube_read_heredoc_result}"
-#     `([$\{\
-#   HEREDOC
+#   cube_total_memory
 # Arguments: None
-cube_read_heredoc() {
-  cube_read_heredoc_first=1
-  cube_read_heredoc_result=""
-  while IFS='\n' read -r cube_read_heredoc_line; do
-    if [ ${cube_read_heredoc_first} -eq 1 ]; then
-      cube_read_heredoc_result="${cube_read_heredoc_line}"
-      cube_read_heredoc_first=0
-    else
-      cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
+cube_total_memory() {
+  echo $(($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024))
+}
+
+# Description:
+#   Ensure directory $1 exists
+# Example call:
+#   cube_ensure_directory ~/.ssh/
+# Arguments:
+#   Requires;
+#     $1: Directory name
+#   Optional:
+#     $2: Permissions (passed to chmod)
+#     $3: Owner (passed to chown)
+#     $4: Group (passed to chgrp)
+cube_ensure_directory() {
+  cube_check_numargs 1 "${@}"
+  cube_ensure_directory_result=1
+  
+  if ! cube_check_dir_exists "${1}"; then
+    mkdir -p "${1}" || cube_check_return
+    cube_ensure_directory_result=0
+    cube_echo "Created directory ${1}"
+  fi
+  if [ "${2}" != "" ]; then
+    chmod ${2} "${1}" || cube_check_return
+  fi
+  if [ "${3}" != "" ]; then
+    chown ${3} "${1}" || cube_check_return
+  fi
+  if [ "${4}" != "" ]; then
+    chgrp ${4} "${1}" || cube_check_return
+  fi
+  
+  return ${cube_ensure_directory_result}
+}
+
+# Description:
+#   Ensure file $1 exists
+# Example call:
+#   cube_ensure_file ~/.ssh/authorized_keys
+# Arguments:
+#   Requires;
+#     $1: File name
+#   Optional:
+#     $2: Permissions (passed to chmod)
+#     $3: Owner (passed to chown)
+#     $4: Group (passed to chgrp)
+cube_ensure_file() {
+  cube_check_numargs 1 "${@}"
+  cube_ensure_file_result=1
+  
+  if ! cube_check_file_exists "${1}"; then
+  
+    cube_ensure_directory "$(dirname "${1}")" $2 $3 $4
+  
+    touch "${1}" || cube_check_return
+    cube_ensure_file_result=0
+    cube_echo "Created file ${1}"
+  fi
+  if [ "${2}" != "" ]; then
+    chmod ${2} "${1}" || cube_check_return
+  fi
+  if [ "${3}" != "" ]; then
+    chown ${3} "${1}" || cube_check_return
+  fi
+  if [ "${4}" != "" ]; then
+    chgrp ${4} "${1}" || cube_check_return
+  fi
+
+  return ${cube_ensure_file_result}
+}
+
+# Description:
+#   Equivalent to `pushd`
+# Example call:
+#   pushd ~/.ssh/
+# Arguments:
+#   Requires;
+#     $1: Directory
+cube_pushd() {
+  cube_check_numargs 1 "${@}"
+  
+  if cube_check_command_exists pushd ; then
+    pushd "${@}" || cube_check_return
+  else
+    cube_throw "TODO: Not implemented"
+  fi
+}
+
+# Description:
+#   Equivalent to `popd`
+# Example call:
+#   popd
+# Arguments: None
+cube_popd() {
+  if cube_check_command_exists popd ; then
+    popd "${@}" || cube_check_return
+  else
+    cube_throw "TODO: Not implemented"
+  fi
+}
+
+# Description:
+#   Return true if the role $1 is set.
+# Example call:
+#   cube_has_role "database_backup"
+# Arguments:
+#   Requires;
+#     $1: Role name
+cube_has_role() {
+  cube_check_numargs 1 "${@}"
+  
+  for cube_has_role_name in ${cubevar_api_roles}; do
+    if [ "${cube_has_role_name}" = "${1}" ]; then
+      return 0
     fi
   done
+  return 1
 }
+
+# Description:
+#   Check if the file $1 contains $2
+# Example call:
+#   cube_file_contains /etc/fstab nfsmount
+# Arguments:
+#   Required:
+#     $1: File name.
+#     $2: Case sensitive search string
+cube_file_contains() {
+  cube_check_numargs 1 "${@}"
+  [ "$(grep -l "${2}" "${1}" | wc -l)" = "1" ]
+}
+
+# Description:
+#   Echo the IPv4 address of interface $1
+# Example call:
+#   cube_interface_ipv4_address eth0
+# Arguments:
+#   Required:
+#     $1: Interface name
+cube_interface_ipv4_address() {
+  cube_check_numargs 1 "${@}"
+  ip -4 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
+}
+
+# Description:
+#   Prompt the question $1 followed by " (y/N)" and prompt for an answer.
+#   A blank string answer is equivalent to No. Return true if yes, false otherwise.
+# Example call:
+#   cube_prompt "Are you sure?"
+# Arguments:
+#   Required:
+#     $1: Prompt test
+cube_prompt() {
+  cube_check_numargs 1 "${@}"
+  while true; do
+    printf "${1} (y/N)? "
+    read cube_prompt_response || cube_check_return
+    case "${cube_prompt_response}" in
+      [Yy]*)
+        return 0
+        ;;
+      ""|[Nn]*)
+        return 1
+        ;;
+      *)
+        echo "Please answer yes or no."
+        ;;
+    esac
+  done
+}
+
+# Description:
+#   Echo full hostname.
+# Example call:
+#   cube_hostname
+# Arguments:
+#   Optional:
+#     $1: Pass true to return a hostname devoid of any domain.
+cube_hostname() {
+  if [ "${1}" = "" ]; then
+    uname -n || cube_check_return
+  else
+    uname -n | sed 's/\..*$//g' || cube_check_return
+  fi
+}
+
+# Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
+cubevar_api_post_restart=""
+
+cubevar_api_roles=""
 
 ################################
 # Core internal implementation #
@@ -803,6 +1057,8 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_envar_scripts_password=""
   p666_user="${USER}"
   p666_cubedir="~/posixcubes/"
+  p666_roles=""
+  p666_options=""
 
   p666_show_version() {
     p666_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
@@ -883,9 +1139,10 @@ HEREDOC
   p666_all_hosts=""
 
   p666_process_hostname() {
-    p666_processed_hostname="$1"
-    p666_hostname_wildcard=$(expr ${p666_processed_hostname} : '.*\*.*')
+    p666_hostname_wildcard=$(expr "${1}" : '.*\*.*')
     if [ ${p666_hostname_wildcard} -ne 0 ]; then
+    
+      # Use or create cache of hosts
       if [ "${p666_all_hosts}" = "" ]; then
         p666_all_hosts=$({ 
           for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
@@ -896,26 +1153,26 @@ HEREDOC
           done
           sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -v '*')
       fi
-      p666_processed_hostname_search=$(printf "${p666_processed_hostname}" | sed 's/\*/\.\*/g')
-      p666_processed_hostname=""
+      
+      p666_process_hostname_search=$(printf "${1}" | sed 's/\*/\.\*/g')
+      
+      p666_process_hostname_list=""
       for p666_all_host in ${p666_all_hosts}; do
-        p666_all_host_match=$(expr ${p666_all_host} : ${p666_processed_hostname_search})
+        p666_all_host_match=$(expr ${p666_all_host} : ${p666_process_hostname_search})
         if [ ${p666_all_host_match} -ne 0 ]; then
-          if [ "${p666_processed_hostname}" = "" ]; then
-            p666_processed_hostname="${p666_all_host}"
-          else
-            p666_processed_hostname="${p666_processed_hostname} ${p666_all_host}"
-          fi
+          p666_process_hostname_list=$(cube_append_str "${p666_process_hostname_list}" "${p666_all_host}")
         fi
       done
+      echo "${p666_process_hostname_list}"
+    else
+      echo "${1}"
     fi
-    return 0
   }
 
   # getopts processing based on http://stackoverflow.com/a/14203146/5657303
   OPTIND=1 # Reset in case getopts has been used previously in the shell.
 
-  while getopts "?vdqiskh:u:c:e:p:w:" p666_opt; do
+  while getopts "?vdqiskh:u:c:e:p:w:r:o:" p666_opt; do
     case "$p666_opt" in
     \?)
       p666_show_usage
@@ -940,35 +1197,23 @@ HEREDOC
       p666_install
       ;;
     h)
-      p666_process_hostname "${OPTARG}"
+      p666_processed_hostname=$(p666_process_hostname "${OPTARG}")
       if [ "${p666_processed_hostname}" != "" ]; then
-        if [ "${p666_hosts}" = "" ]; then
-          p666_hosts="${p666_processed_hostname}"
-        else
-          p666_hosts="${p666_hosts} ${p666_processed_hostname}"
-        fi
+        p666_hosts=$(cube_append_str "${p666_hosts}" "${p666_processed_hostname}")
       else
         p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
         exit 1
       fi
       ;;
     c)
-      if [ "${p666_cubes}" = "" ]; then
-        p666_cubes="${OPTARG}"
-      else
-        p666_cubes="${p666_cubes} ${OPTARG}"
-      fi
+      p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
       ;;
     e)
       if [ ! -r "${OPTARG}" ]; then
         p666_printf_error "Could not find ${OPTARG} ENVAR script."
         exit 1
       fi
-      if [ "${p666_envar_scripts}" = "" ]; then
-        p666_envar_scripts="${OPTARG}"
-      else
-        p666_envar_scripts="${p666_envar_scripts} ${OPTARG}"
-      fi
+      p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
       ;;
     u)
       p666_user="${OPTARG}"
@@ -978,6 +1223,16 @@ HEREDOC
       ;;
     w)
       p666_envar_scripts_password="$(cat ${OPTARG})" || cube_check_return
+      ;;
+    r)
+      p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
+      ;;
+    o)
+      # Break up into name and value
+      p666_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
+      p666_option_value=$(echo "${OPTARG}" | sed 's/.*=//')
+      p666_option_value=$(p666_process_hostname "${p666_option_value}")
+      p666_options=$(cube_append_str "${p666_options}" "${p666_option_name}=\"${p666_option_value}\"" "${POSIXCUBE_NEWLINE}")
       ;;
     esac
   done
@@ -1092,6 +1347,7 @@ HEREDOC
     ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
     p666_host_output_result=$?
     p666_handle_remote_response
+    return ${p666_host_output_result}
   }
 
   p666_remote_transfer() {
@@ -1145,11 +1401,7 @@ HEREDOC
       fi
     fi
     
-    if [ "${p666_envar_scripts_final}" = "" ]; then
-      p666_envar_scripts_final="${p666_envar_script}"
-    else
-      p666_envar_scripts_final="${p666_envar_scripts_final} ${p666_envar_script}"
-    fi
+    p666_envar_scripts_final=$(cube_append_str "${p666_envar_scripts_final}" "${p666_envar_script}")
     
     chmod u+x "${p666_envar_script}"
     
@@ -1173,7 +1425,14 @@ rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
         p666_cube=${p666_cube%/}
         p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
-source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
+#cube_echo \"====================================\"
+cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
+source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return
+cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
+#cube_echo \"====================================\"
+"
       else
         p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
         exit 1
@@ -1183,13 +1442,27 @@ source ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return"
       chmod u+x "${p666_cube}"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-source ${p666_cubedir}/${p666_cube_name} || cube_check_return"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
+#cube_echo \"====================================\"
+cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
+source ${p666_cubedir}/${p666_cube_name} || cube_check_return
+cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
+#cube_echo \"====================================\"
+"
     elif [ -r "${p666_cube}.sh" ]; then
       p666_cube_name=$(basename "${p666_cube}.sh")
       chmod u+x "${p666_cube}.sh"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-source ${p666_cubedir}/${p666_cube_name} || cube_check_return"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
+#cube_echo \"====================================\"
+cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
+source ${p666_cubedir}/${p666_cube_name} || cube_check_return
+cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
+#cube_echo \"====================================\"
+"
     else
       p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
       exit 1
@@ -1212,7 +1485,17 @@ if [ \$? -ne 0 ] ; then
   echo "Could not source ${p666_remote_script} script" 1>&2
   exit 1
 fi
+
+POSIXCUBE_DEBUG=${p666_debug}
+cubevar_api_roles="${p666_roles}"
+${p666_options}
 ${p666_script_contents}
+
+if [ "\${cubevar_api_post_restart}" != "" ]; then
+  for p666_post in \${cubevar_api_post_restart}; do
+    cube_service restart "\${p666_post}"
+  done
+fi
 HEREDOC
 
   chmod +x "${p666_script}"
@@ -1255,7 +1538,7 @@ HEREDOC
 
   for p666_host in ${p666_hosts}; do
     [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
-    p666_remote_ssh "source ${p666_cubedir}/${p666_script}"
+    p666_remote_ssh "source ${p666_cubedir}/${p666_script}" || exit $?
   done
   
   for p666_envar_script in ${p666_envar_scripts}; do
