@@ -802,9 +802,10 @@ cube_set_file_contents() {
       cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
       cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
 
-      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      # Parameter expansion can introduce very large delays with large files, so point that out
+      #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
         cube_echo "Expanding parameters of ${cube_set_file_contents_input_file_original}"
-      fi
+      #fi
       
       # awk, perl, sed, envsubst, etc. can do this easily but would require exported envars
       # perl -pe 's/([^\\]|^)\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}/$1.$ENV{$2}/eg' < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
@@ -812,9 +813,9 @@ cube_set_file_contents() {
       # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
       cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
       
-      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
         cube_echo "Expansion complete"
-      fi
+      #fi
       
       cube_set_file_contents_input_file_needs_remove=0
     else
@@ -823,14 +824,25 @@ cube_set_file_contents() {
   fi
   
   if cube_check_file_exists "${cube_set_file_contents_target_file}" ; then
+  
     # If the file sizes are different, then replace the file (http://stackoverflow.com/a/5920355/5657303)
     cube_set_file_contents_target_file_size=$(cube_get_file_size "${cube_set_file_contents_target_file}")
     cube_set_file_contents_input_file_size=$(cube_get_file_size "${cube_set_file_contents_input_file}")
     
+    if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      cube_echo "Target file ${cube_set_file_contents_target_file} exists. Target size: ${cube_set_file_contents_target_file_size}, source size: ${cube_set_file_contents_input_file_size}"
+    fi
+    
     if [ ${cube_set_file_contents_target_file_size} -eq ${cube_set_file_contents_input_file_size} ]; then
+
       # Sizes are equal, so do a quick cksum
       cube_set_file_contents_target_file_cksum=$(cksum "${cube_set_file_contents_target_file}" | awk '{print $1}')
       cube_set_file_contents_input_file_cksum=$(cksum "${cube_set_file_contents_input_file}" | awk '{print $1}')
+
+      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+        cube_echo "Target cksum: ${cube_set_file_contents_target_file_cksum}, source cksum: ${cube_set_file_contents_input_file_cksum}"
+      fi
+      
       if [ "${cube_set_file_contents_target_file_cksum}" != "${cube_set_file_contents_input_file_cksum}" ]; then
         cube_set_file_contents_needs_replace=1
       fi
@@ -928,9 +940,25 @@ cube_readlink() {
 #   Echo total system memory in bytes
 # Example call:
 #   cube_total_memory
-# Arguments: None
+# Arguments:
+#   Optional:
+#     #1: [kb|mb|gb| to return in that number
 cube_total_memory() {
-  echo $(($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024))
+  case "${1}" in
+    kb|KB)
+      cube_total_memory_divisor=1024
+      ;;
+    mb|MB)
+      cube_total_memory_divisor=1048576
+      ;;
+    gb|GB)
+      cube_total_memory_divisor=1073741824
+      ;;
+    *)
+      cube_total_memory_divisor=1
+      ;;
+  esac
+  echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/${cube_total_memory_divisor}))
 }
 
 # Description:
