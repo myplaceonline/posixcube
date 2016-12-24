@@ -85,7 +85,8 @@ Description:
   such as templates using relative paths.
   
   An ENVAR script is encouraged to use environment variable names of the form
-  cubevar_${uniquecontext}_envar="value".
+  cubevar_${uniquecontext}_envar="value". If a CUBE directory contains the
+  file `envars.sh`, it's sourced before anything else (including `-e ENVARs`).
   
   Both CUBEs and COMMANDs may execute any of the functions defined in the
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
@@ -1551,6 +1552,7 @@ HEREDOC
 
   # Create a script that we'll execute on the remote end
   p666_script_contents="cube_initial_directory=\${PWD}"
+  p666_script_envar_contents=""
   
   p666_envar_scripts_final=""
 
@@ -1614,6 +1616,11 @@ cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
+        if [ -r "${p666_cube}/envars.sh" ]; then
+          p666_script_envar_contents="${p666_script_envar_contents}
+. ${p666_cubedir}/${p666_cube}/envars.sh || cube_check_return \"Failed loading cube envars\"
+"
+        fi
       else
         p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
         exit 1
@@ -1669,6 +1676,7 @@ fi
 
 POSIXCUBE_DEBUG=${p666_debug}
 cubevar_api_roles="${p666_roles}"
+${p666_script_envar_contents}
 ${p666_options}
 ${p666_script_contents}
 
