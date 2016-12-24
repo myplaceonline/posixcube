@@ -320,6 +320,30 @@ API:
       Echo full hostname.
       Example: cube_hostname
 
+  * cube_user_exists
+      Check if the $1 user exists
+      Example: cube_user_exists nginx
+
+  * cube_create_user
+      Create the user $1
+      Example: cube_create_user nginx
+
+  * cube_group_exists
+      Check if the $1 group exists
+      Example: cube_group_exists nginx
+
+  * cube_create_group
+      Create the group $1
+      Example: cube_create_group nginx
+
+  * cube_group_contains_user
+      Check if the $1 group contains the user $2
+      Example: cube_group_contains_user nginx nginx
+
+  * cube_add_group_user
+      Add the user $2 to group $1
+      Example: cube_add_group_user nginx nginx
+
 Source: https://github.com/myplaceonline/posixcube
 
 HEREDOC
@@ -470,7 +494,14 @@ cube_throw() {
 # Arguments: None
 cube_check_return() {
   cube_check_return_val=${?}
-  [ ${cube_check_return_val} -ne 0 ] && cube_throw "Previous command failed with code ${cube_check_return_val} ${@}"
+  if [ ${cube_check_return_val} -ne 0 ]; then
+    cube_check_return_info=""
+    if [ "${*}" != "" ]; then
+      cube_check_return_info=" (${*})"
+    fi
+    cube_throw "Previous command failed with code ${cube_check_return_val}${cube_check_return_info}"
+  fi
+  return ${cube_check_return_val}
 }
 
 # Description:
@@ -1085,6 +1116,102 @@ cube_hostname() {
   fi
 }
 
+# Description:
+#   Check if the $1 user exists
+# Example call:
+#   cube_user_exists nginx
+# Arguments:
+#   Required:
+#     $1: User name
+cube_user_exists() {
+  cube_check_numargs 1 "${@}"
+  id -u "${1}" >/dev/null 2>&1
+  return $?
+}
+
+# Description:
+#   Create the user $1
+# Example call:
+#   cube_create_user nginx
+# Arguments:
+#   Required:
+#     $1: User name
+#   Optional:
+#     $2: Shell
+cube_create_user() {
+  cube_check_numargs 1 "${@}"
+  
+  useradd "${1}" || cube_check_return
+  
+  if [ "${2}" != "" ]; then
+    usermod -s "${2}" "${1}" || cube_check_return
+  fi
+}
+
+# Description:
+#   Check if the $1 group exists
+# Example call:
+#   cube_group_exists nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+cube_group_exists() {
+  cube_check_numargs 1 "${@}"
+  cube_file_contains "^${1}:"
+}
+
+# Description:
+#   Create the group $1
+# Example call:
+#   cube_create_group nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+cube_create_group() {
+  cube_check_numargs 1 "${@}"
+  
+  groupadd "${1}" || cube_check_return
+}
+
+# Description:
+#   Check if the $1 group contains the user $2
+# Example call:
+#   cube_group_contains_user nginx nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+#     $2: User name
+cube_group_contains_user() {
+  cube_check_numargs 2 "${@}"
+  
+  for cube_group_contains_user in $(groups "${2}" | sed "s/${2} : //g"); do
+    if [ "${cube_group_contains_user}" = "${1}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Description:
+#   Add the user $2 to group $1
+# Example call:
+#   cube_add_group_user nginx nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+#     $2: User name
+#   Optional:
+#     $3: true if group is primary
+cube_add_group_user() {
+  cube_check_numargs 2 "${@}"
+  
+  if [ "${3}" = "" ]; then
+    usermod -a -G "${1}" "${2}"
+  else
+    usermod -g "${1}" "${2}"
+  fi
+}
+
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
 cubevar_api_post_restart=""
 
@@ -1483,7 +1610,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return
+. ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
@@ -1500,7 +1627,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube_name} || cube_check_return
+. ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
@@ -1513,7 +1640,7 @@ POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
 POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
 #cube_echo \"====================================\"
 cube_echo \"Started cube \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube_name} || cube_check_return
+. ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube \${POSIXCUBE_CUBE_NAME}\"
 #cube_echo \"====================================\"
 "
