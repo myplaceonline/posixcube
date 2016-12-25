@@ -803,29 +803,25 @@ cube_set_file_contents() {
   cube_set_file_contents_input_file_is_template=$(expr "${cube_set_file_contents_input_file}" : '.*\.template$')
   if [ ${cube_set_file_contents_input_file_is_template} -ne 0 ]; then
     
-    if cube_check_command_exists perl ; then
-      cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
-      cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
+    cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
+    cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
 
-      # Parameter expansion can introduce very large delays with large files, so point that out
-      #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
-        cube_echo "Expanding parameters of ${cube_set_file_contents_input_file_original}"
-      #fi
-      
-      # awk, perl, sed, envsubst, etc. can do this easily but would require exported envars
-      # perl -pe 's/([^\\]|^)\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}/$1.$ENV{$2}/eg' < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
-      # http://stackoverflow.com/questions/415677/how-to-replace-placeholders-in-a-text-file
-      # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
-      cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
-      
-      #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
-        cube_echo "Expansion complete"
-      #fi
-      
-      cube_set_file_contents_input_file_needs_remove=0
-    else
-      cube_throw "Perl not found on PATH"
-    fi
+    # Parameter expansion can introduce very large delays with large files, so point that out
+    #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      cube_echo "Expanding parameters of ${cube_set_file_contents_input_file_original}"
+    #fi
+    
+    # awk, perl, sed, envsubst, etc. can do this easily but would require exported envars
+    # perl -pe 's/([^\\]|^)\$\{([a-zA-Z_][a-zA-Z_0-9]*)\}/$1.$ENV{$2}/eg' < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
+    # http://stackoverflow.com/questions/415677/how-to-replace-placeholders-in-a-text-file
+    # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
+    cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
+    
+    #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      cube_echo "Expansion complete"
+    #fi
+    
+    cube_set_file_contents_input_file_needs_remove=0
   fi
   
   if cube_check_file_exists "${cube_set_file_contents_target_file}" ; then
@@ -1218,7 +1214,7 @@ cube_create_user() {
 #     $1: Group name
 cube_group_exists() {
   cube_check_numargs 1 "${@}"
-  cube_file_contains "^${1}:"
+  cube_file_contains /etc/group "^${1}:"
 }
 
 # Description:
