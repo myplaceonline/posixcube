@@ -35,6 +35,7 @@
       -s        Skip remote host initialization (making ~/posixcubes, uploading
                 posixcube.sh, etc.
       -k        Keep the cube_exec.sh generated script.
+      -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -73,7 +74,7 @@
       For example: $(cube_readlink /etc/localtime) || cube_check_return
       
       We do not use `set -e` because some functions may handle all errors
-      internally (with `cube_check_return` and use a positive return code as a
+      internally (with `cube_check_return`) and use a positive return code as a
       "benign" result (e.g. `cube_set_file_contents`).
 
     Frequently Asked Questions:

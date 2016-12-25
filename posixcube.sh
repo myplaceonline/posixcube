@@ -68,6 +68,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -s        Skip remote host initialization (making ~/posixcubes, uploading
             posixcube.sh, etc.
   -k        Keep the cube_exec.sh generated script.
+  -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -107,7 +108,7 @@ Philosophy:
   For example: $(cube_readlink /etc/localtime) || cube_check_return
   
   We do not use `set -e` because some functions may handle all errors
-  internally (with `cube_check_return` and use a positive return code as a
+  internally (with `cube_check_return`) and use a positive return code as a
   "benign" result (e.g. `cube_set_file_contents`).
 
 Frequently Asked Questions:
@@ -1264,6 +1265,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
   p666_cubedir="~/posixcubes/"
   p666_roles=""
   p666_options=""
+  p666_specfile="./cubespecs.ini"
 
   p666_show_version() {
     p666_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
@@ -1373,75 +1375,107 @@ HEREDOC
       echo "${1}"
     fi
   }
-
-  # getopts processing based on http://stackoverflow.com/a/14203146/5657303
-  OPTIND=1 # Reset in case getopts has been used previously in the shell.
-
-  while getopts "?vdqiskh:u:c:e:p:w:r:o:" p666_opt; do
-    case "$p666_opt" in
-    \?)
-      p666_show_usage
-      ;;
-    v)
-      p666_show_version
-      exit 1
-      ;;
-    d)
-      p666_debug=1
-      ;;
-    q)
-      p666_quiet=1
-      ;;
-    s)
-      p666_skip_init=1
-      ;;
-    k)
-      p666_keep_exec=1
-      ;;
-    i)
-      p666_install
-      ;;
-    h)
-      p666_processed_hostname=$(p666_process_hostname "${OPTARG}")
-      if [ "${p666_processed_hostname}" != "" ]; then
-        p666_hosts=$(cube_append_str "${p666_hosts}" "${p666_processed_hostname}")
-      else
-        p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
-        exit 1
-      fi
-      ;;
-    c)
-      p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
-      ;;
-    e)
-      if [ ! -r "${OPTARG}" ]; then
-        p666_printf_error "Could not find ${OPTARG} ENVAR script."
-        exit 1
-      fi
-      p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
-      ;;
-    u)
-      p666_user="${OPTARG}"
-      ;;
-    p)
-      p666_envar_scripts_password="${OPTARG}"
-      ;;
-    w)
-      p666_envar_scripts_password="$(cat ${OPTARG})" || cube_check_return
-      ;;
-    r)
-      p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
-      ;;
-    o)
-      # Break up into name and value
-      p666_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
-      p666_option_value=$(echo "${OPTARG}" | sed 's/.*=//')
-      p666_option_value=$(p666_process_hostname "${p666_option_value}")
-      p666_options=$(cube_append_str "${p666_options}" "${p666_option_name}=\"${p666_option_value}\"" "${POSIXCUBE_NEWLINE}")
-      ;;
-    esac
-  done
   
+  p666_process_options() {
+    # getopts processing based on http://stackoverflow.com/a/14203146/5657303
+    OPTIND=1 # Reset in case getopts has been used previously in the shell.
+    
+    echo "Processing ${@}"
+
+    while getopts "?vdqiskh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
+      case "$p666_opt" in
+      \?)
+        p666_show_usage
+        ;;
+      v)
+        p666_show_version
+        exit 1
+        ;;
+      d)
+        p666_debug=1
+        ;;
+      q)
+        p666_quiet=1
+        ;;
+      s)
+        p666_skip_init=1
+        ;;
+      k)
+        p666_keep_exec=1
+        ;;
+      i)
+        p666_install
+        ;;
+      h)
+        p666_processed_hostname=$(p666_process_hostname "${OPTARG}")
+        if [ "${p666_processed_hostname}" != "" ]; then
+          p666_hosts=$(cube_append_str "${p666_hosts}" "${p666_processed_hostname}")
+        else
+          p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
+          exit 1
+        fi
+        ;;
+      c)
+        p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
+        ;;
+      e)
+        if [ ! -r "${OPTARG}" ]; then
+          p666_printf_error "Could not find ${OPTARG} ENVAR script."
+          exit 1
+        fi
+        p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
+        ;;
+      u)
+        p666_user="${OPTARG}"
+        ;;
+      p)
+        p666_envar_scripts_password="${OPTARG}"
+        ;;
+      w)
+        p666_envar_scripts_password="$(cat ${OPTARG})" || cube_check_return
+        ;;
+      r)
+        p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
+        ;;
+      o)
+        # Break up into name and value
+        p666_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
+        p666_option_value=$(echo "${OPTARG}" | sed "s/^${p666_option_name}=//")
+        p666_option_value=$(p666_process_hostname "${p666_option_value}")
+        p666_options=$(cube_append_str "${p666_options}" "${p666_option_name}=\"${p666_option_value}\"" "${POSIXCUBE_NEWLINE}")
+        ;;
+      z)
+        if [ -r "${p666_specfile}" ]; then
+          p666_foundspec=0
+          
+          p666_foundspec_names=""
+          
+          while read p666_specfile_line; do
+            p666_specfile_line_name=$(echo "${p666_specfile_line}" | sed 's/=.*//')
+            p666_foundspec_names=$(cube_append_str "${p666_foundspec_names}" "${p666_specfile_line_name}")
+            if [ "${p666_specfile_line_name}" = "${OPTARG}" ]; then
+              p666_foundspec=1
+              p666_specfile_line_value=$(echo "${p666_specfile_line}" | sed "s/^${p666_specfile_line_name}=//")
+              p666_process_options ${p666_specfile_line_value}
+              break
+            fi
+          done < "${p666_specfile}"
+          
+          if [ ${p666_foundspec} -eq 0 ]; then
+            p666_printf_error "Could not find ${OPTARG} in ${p666_specfile} file with specs ${p666_foundspec_names}"
+            exit 1
+          fi
+        else
+          p666_printf_error "Could not find ${p666_specfile} file"
+          exit 1
+        fi
+        ;;
+      esac
+    done
+  }
+  
+  p666_process_options "${@}"
+
   # If no password specified, check for the ~/.posixcube.pwd file
   if [ "${p666_envar_scripts_password}" = "" ] && [ -r ~/.posixcube.pwd ]; then
     p666_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
@@ -1556,6 +1590,9 @@ HEREDOC
     
     ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
     p666_host_output_result=$?
+    
+    [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}"
+    
     p666_handle_remote_response
     return ${p666_host_output_result}
   }
