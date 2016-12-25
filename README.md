@@ -275,6 +275,10 @@
           Check if the file $1 contains $2
           Example: cube_file_contains /etc/fstab nfsmount
 
+      * cube_stdin_contains
+          Check if stdin contains $1
+          Example: echo "Hello World" | cube_stdin_contains "Hello"
+
       * cube_interface_ipv4_address
           Echo the IPv4 address of interface $1
           Example: cube_interface_ipv4_address eth0

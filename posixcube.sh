@@ -309,6 +309,10 @@ API:
       Check if the file $1 contains $2
       Example: cube_file_contains /etc/fstab nfsmount
 
+  * cube_stdin_contains
+      Check if stdin contains $1
+      Example: echo "Hello World" | cube_stdin_contains "Hello"
+
   * cube_interface_ipv4_address
       Echo the IPv4 address of interface $1
       Example: cube_interface_ipv4_address eth0
@@ -1088,8 +1092,35 @@ cube_has_role() {
 #     $1: File name.
 #     $2: Case sensitive search string
 cube_file_contains() {
+  cube_check_numargs 2 "${@}"
+  
+  # "Normally the exit status is 0 if a line is selected, 1 if no lines were selected, and 2 if an error occurred."
+  cube_file_contains_grep_output="$(grep -l "${2}" "${1}")"
+  cube_file_contains_grep_results=$?
+  
+  if [ ${cube_file_contains_grep_results} -eq 2 ]; then
+    cube_throw "${cube_file_contains_grep_output}"
+  else
+    return ${cube_file_contains_grep_results}
+  fi
+}
+
+# Description:
+#   Check if stdin contains $1
+# Example call:
+#   echo "Hello World" | cube_stdin_contains "Hello"
+# Arguments:
+#   Required:
+#     $1: Search
+cube_stdin_contains() {
   cube_check_numargs 1 "${@}"
-  [ "$(grep -l "${2}" "${1}" | wc -l)" = "1" ]
+  cube_stdin_contains_output=$(grep -l "${1}" -)
+  cube_stdin_contains_result=$?
+  if [ ${cube_stdin_contains_result} -eq 2 ]; then
+    cube_throw "${cube_stdin_contains_output}"
+  else
+    return ${cube_stdin_contains_result}
+  fi
 }
 
 # Description:
