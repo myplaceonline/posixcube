@@ -60,42 +60,6 @@
       is in the APIs section below. See the source comments above each function
       for details.
       
-    Philosophy:
-
-      Fail hard and fast. In principle, a well written script would check ${?}
-      after each command and either gracefully handle it, or report an error.
-      Few people write scripts this well, so we enforce this check (using
-      `cube_check_return` within all APIs) and we encourage you to do the same
-      in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
-      APIs are guaranteed to do their own checks, so you don't have to do this
-      for those calls; however, note that if you're executing a cube_* API in a
-      sub-shell, although any failures will be reported by cube_check_return,
-      the script will continue unless you also check the return of the sub-shell.
-      For example: $(cube_readlink /etc/localtime) || cube_check_return
-      
-      We do not use `set -e` because some functions may handle all errors
-      internally (with `cube_check_return`) and use a positive return code as a
-      "benign" result (e.g. `cube_set_file_contents`).
-
-    Frequently Asked Questions:
-
-      * Why is there a long delay between "Preparing hosts" and the first remote
-        execution?
-      
-        You can see details of what's happening with the `-d` flag. By default,
-        the script first loops through every host and ensures that ~/posixcubes/
-        exists, then it transfers itself to the remote host. These two actions
-        may be skipped with the `-s` parameter if you've already run the script
-        at least once and your version of this script hasn't been updated. Next,
-        the script loops through every host and transfers any CUBEs and a script
-        containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
-        you'll see the "Executing on HOST..." line and the real execution starts.
-
-    Cube Development:
-
-      Shell scripts don't have scoping, so to reduce the chances of function name
-      conflicts, name functions cube_${cubename}_${function}
-
     Examples (assuming posixcube.sh directory is on ${PATH}, or you may execute
               it using an absolute path):
 
@@ -140,6 +104,42 @@
       posixcube.sh -e production.sh.enc edit
       
         Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
+
+    Philosophy:
+
+      Fail hard and fast. In principle, a well written script would check ${?}
+      after each command and either gracefully handle it, or report an error.
+      Few people write scripts this well, so we enforce this check (using
+      `cube_check_return` within all APIs) and we encourage you to do the same
+      in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
+      APIs are guaranteed to do their own checks, so you don't have to do this
+      for those calls; however, note that if you're executing a cube_* API in a
+      sub-shell, although any failures will be reported by cube_check_return,
+      the script will continue unless you also check the return of the sub-shell.
+      For example: $(cube_readlink /etc/localtime) || cube_check_return
+      
+      We do not use `set -e` because some functions may handle all errors
+      internally (with `cube_check_return`) and use a positive return code as a
+      "benign" result (e.g. `cube_set_file_contents`).
+
+    Frequently Asked Questions:
+
+      * Why is there a long delay between "Preparing hosts" and the first remote
+        execution?
+      
+        You can see details of what's happening with the `-d` flag. By default,
+        the script first loops through every host and ensures that ~/posixcubes/
+        exists, then it transfers itself to the remote host. These two actions
+        may be skipped with the `-s` parameter if you've already run the script
+        at least once and your version of this script hasn't been updated. Next,
+        the script loops through every host and transfers any CUBEs and a script
+        containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
+        you'll see the "Executing on HOST..." line and the real execution starts.
+
+    Cube Development:
+
+      Shell scripts don't have scoping, so to reduce the chances of function name
+      conflicts, name functions cube_${cubename}_${function}
 
     API:
       
