@@ -1292,7 +1292,7 @@ if [ "${POSIXCUBE_SOURCED}" = "" ]; then
       # by Jean-Sebastien Morisset (http://surniaulula.com/)
       
       cat <<'HEREDOC' | tee ${p666_autocomplete_file} > /dev/null
-_posixcube_complete_host() {
+_posixcube_complete() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
@@ -1308,12 +1308,16 @@ _posixcube_complete_host() {
         sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -v '*')
       COMPREPLY=( $(compgen -W "${p666_host_list}" -- $cur))
       ;;
+    \-z)
+      p666_complete_specs="$(sed 's/=.*//g' cubespecs.ini)"
+      COMPREPLY=( $(compgen -W "${p666_complete_specs}" -- $cur))
+      ;;
     *)
       ;;
   esac
   return 0
 }
-complete -o default -F _posixcube_complete_host posixcube.sh
+complete -o default -F _posixcube_complete posixcube.sh
 HEREDOC
 
       p666_func_result=$?
@@ -1380,8 +1384,6 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    echo "Processing ${@}"
-
     while getopts "?vdqiskh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
