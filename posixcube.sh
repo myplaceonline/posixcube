@@ -393,7 +393,11 @@ POSIXCUBE_SHELL_BASH=1
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
 # Arguments: ${@} passed to echo
 cube_echo() {
-  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] "
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] "
+  else
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] "
+  fi
   echo "${@}"
 }
 
@@ -411,7 +415,11 @@ cube_echo() {
 #     $2: printf arguments 
 cube_printf() {
   cube_printf_str=$1; shift
-  printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}] ${cube_printf_str}\n" "${@}"
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+  else
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}$(hostname)${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+  fi
 }
 
 # Description:
@@ -423,7 +431,11 @@ cube_printf() {
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
 # Arguments: ${@} passed to echo
 cube_error_echo() {
-  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  else
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+  fi
   echo "${@}" 1>&2
 }
 
@@ -441,7 +453,11 @@ cube_error_echo() {
 #     $2: printf arguments 
 cube_error_printf() {
   cube_error_printf_str=$1; shift
-  printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  else
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}$(hostname)${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  fi
 }
 
 # Description:
@@ -467,7 +483,7 @@ cube_throw() {
       if [ ${cube_error_caller_result} -eq 0 ]; then
         cube_error_caller_result_lineno=$(echo "${cube_error_caller}" | awk '{ print $1 }')
         cube_error_caller_result_subroutine=$(echo "${cube_error_caller}" | awk '{ print $2 }')
-        cube_error_caller_result_sourcefile=$(echo "${cube_error_caller}" | awk '{ for(i=3;i<=NF;i++){ printf "%s ", $i }; printf "\n" }')
+        cube_error_caller_result_sourcefile=$(echo "${cube_error_caller}" | awk '{ for(i=3;i<=NF;i++){ printf "%s ", $i }; printf "\n" }' | sed 's/ $//')
         cube_error_printf "  [func] %4s ${cube_error_caller_result_subroutine} ${cube_error_caller_result_sourcefile}" "${cube_error_caller_result_lineno}"
       else
         break
@@ -491,6 +507,39 @@ cube_throw() {
   fi
   
   exit 1
+}
+
+# Description:
+#   Skipping any call stack frames in posixcube.sh, return the line number of the calling stack frame
+# Example call:
+#   cube_line_number
+# Arguments:
+#   Optional:
+#     $1: If a result is returned, prepend with $1
+cube_line_number() {
+  if cube_check_command_exists caller ; then
+    x=0
+    while true; do
+      cube_api_caller_output=$(caller $x)
+      cube_api_caller_result=${?}
+      if [ ${cube_api_caller_result} -eq 0 ]; then
+        cube_api_caller_result_lineno=$(echo "${cube_api_caller_output}" | awk '{ print $1 }')
+        cube_api_caller_result_subroutine=$(echo "${cube_api_caller_output}" | awk '{ print $2 }')
+        cube_api_caller_result_sourcefile=$(echo "${cube_api_caller_output}" | awk '{ for(i=3;i<=NF;i++){ printf "%s ", $i }; printf "\n" }' | sed 's/ $//')
+        cube_api_caller_result_sourcefile_basename=$(basename "${cube_api_caller_result_sourcefile}")
+        if [ "${cube_api_caller_result_sourcefile_basename}" != "posixcube.sh" ]; then
+          if [ "${1}" != "" ]; then
+            printf "%s" "${1}"
+          fi
+          printf "%s" "${cube_api_caller_result_lineno}"
+          break
+        fi
+      else
+        break
+      fi
+      x=$((${x}+1))
+    done
+  fi
 }
 
 # Description:
@@ -1702,13 +1751,9 @@ rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
         p666_cube=${p666_cube%/}
         p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
-#cube_echo \"====================================\"
-cube_echo \"Started cube: \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
-cube_echo \"Finished cube: \${POSIXCUBE_CUBE_NAME}\"
-#cube_echo \"====================================\"
+cube_echo \"Started cube: ${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
+cube_echo \"Finished cube: ${p666_cube_name}\"
 "
         if [ -r "${p666_cube}/envars.sh" ]; then
           p666_script_envar_contents="${p666_script_envar_contents}
@@ -1724,26 +1769,18 @@ cube_echo \"Finished cube: \${POSIXCUBE_CUBE_NAME}\"
       chmod u+x "${p666_cube}"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
-#cube_echo \"====================================\"
-cube_echo \"Started cube: \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
-cube_echo \"Finished cube: \${POSIXCUBE_CUBE_NAME}\"
-#cube_echo \"====================================\"
+cube_echo \"Started cube: ${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
+cube_echo \"Finished cube: ${p666_cube_name}\"
 "
     elif [ -r "${p666_cube}.sh" ]; then
       p666_cube_name=$(basename "${p666_cube}.sh")
       chmod u+x "${p666_cube}.sh"
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\"
-#cube_echo \"====================================\"
-cube_echo \"Started cube: \${POSIXCUBE_CUBE_NAME}\"
-. ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
-cube_echo \"Finished cube: \${POSIXCUBE_CUBE_NAME}\"
-#cube_echo \"====================================\"
+cube_echo \"Started cube: ${p666_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
+cube_echo \"Finished cube: ${p666_cube_name}\"
 "
     else
       p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
