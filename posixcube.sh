@@ -1922,7 +1922,7 @@ HEREDOC
       [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
       p666_remote_ssh ". ${p666_cubedir}/${p666_script}"
       p666_remote_ssh_result=$?
-      [ ${p666_debug} -eq 0 ] && p666_exit ${p666_remote_ssh_result}
+      [ ${p666_skip_host_errors} -eq 0 ] && p666_exit ${p666_remote_ssh_result}
     done
 
     p666_exit 0
