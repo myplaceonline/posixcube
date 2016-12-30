@@ -64,7 +64,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
-  -i        If using bash, install programmable tab completion for SSH hosts.
+  -b        If using bash, install programmable tab completion for SSH hosts.
   -s        Skip remote host initialization (making ~/posixcubes, uploading
             posixcube.sh, etc.
   -k        Keep the cube_exec.sh generated script.
@@ -131,7 +131,7 @@ Examples (assuming posixcube.sh directory is on ${PATH}, or you may execute
     Run the `uptime` command on all hosts matching the regular expression
     web.*.test.com in the SSH configuration files.
   
-  sudo ${PATH_TO}/posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
+  sudo ${PATH_TO}/posixcube.sh -b && . /etc/bash_completion.d/posixcube_completion.sh
   
     For Bash users, install a programmable completion script to support tab
     auto-completion of hosts from SSH configuration files.
@@ -1440,7 +1440,7 @@ HEREDOC
       else
         p666_printf "Could not create ${p666_autocomplete_file}\n"
         p666_printf "You may need to try with sudo. For example:\n"
-        p666_printf "  sudo $(cube_current_script_abs_path) -i && . ${p666_autocomplete_file}\n"
+        p666_printf "  sudo $(cube_current_script_abs_path) -b && . ${p666_autocomplete_file}\n"
         p666_printf "You only need to source the command the first time. Subsequent shells will automatically source it.\n"
       fi
     else
@@ -1486,7 +1486,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqiskyh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
+    while getopts "?vdqbskyh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1510,7 +1510,7 @@ HEREDOC
       y)
         p666_skip_host_errors=1
         ;;
-      i)
+      b)
         p666_install
         ;;
       h)

@@ -31,7 +31,7 @@
       -v        Show version information.
       -d        Print debugging information.
       -q        Quiet; minimize output.
-      -i        If using bash, install programmable tab completion for SSH hosts.
+      -b        If using bash, install programmable tab completion for SSH hosts.
       -s        Skip remote host initialization (making ~/posixcubes, uploading
                 posixcube.sh, etc.
       -k        Keep the cube_exec.sh generated script.
@@ -97,7 +97,7 @@
         Run the `uptime` command on all hosts matching the regular expression
         web.*.test.com in the SSH configuration files.
       
-      sudo ${PATH_TO}/posixcube.sh -i && . /etc/bash_completion.d/posixcube_completion.sh
+      sudo ${PATH_TO}/posixcube.sh -b && . /etc/bash_completion.d/posixcube_completion.sh
       
         For Bash users, install a programmable completion script to support tab
         auto-completion of hosts from SSH configuration files.
