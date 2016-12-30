@@ -61,6 +61,8 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -o P=V    Set the specified parameter P with the value V. Do not put double
             quotes around V. If V contains *, try to find matching hosts per
             the -h algorithm. Option may be specified multiple times.
+  -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
+            includes this CUBE using cube_include.
   -v        Show version information.
   -d        Print debugging information.
   -q        Quiet; minimize output.
@@ -354,6 +356,10 @@ API:
   * cube_add_group_user
       Add the user $2 to group $1
       Example: cube_add_group_user nginx nginx
+
+  * cube_include
+      Include the ${1} cube
+      Example: cube_include core_cube
 
 Source: https://github.com/myplaceonline/posixcube
 
@@ -1328,6 +1334,36 @@ cube_add_group_user() {
   fi
 }
 
+# Description:
+#   Include the ${1} cube
+# Example call:
+#   cube_include core_cube
+# Arguments:
+#   Required:
+#     $1: CUBE name
+cube_include() {
+  cube_check_numargs 1 "${@}"
+  
+  cube_include_name="${1%%/}"
+  if [ -d "../${cube_include_name}" ]; then
+    cube_include_name_base=$(basename "${cube_include_name}" .sh)
+    if [ -r "../${cube_include_name}/${cube_include_name_base}.sh" ]; then
+      cube_echo "Including ${cube_include_name} cube..."
+      . "../${cube_include_name}/${cube_include_name_base}.sh"
+    else
+      cube_throw "Cannot read ${cube_include_name}/${cube_include_name_base}.sh"
+    fi
+  elif [ -r "../${cube_include_name}" ]; then
+    cube_echo "Including ${cube_include_name} cube..."
+    . "../${cube_include_name}"
+  elif [ -r "${cube_include_name}.sh" ]; then
+    cube_echo "Including ${cube_include_name} cube..."
+    . "../${cube_include_name}.sh"
+  else
+    cube_throw "Cube not found (did you upload it with -i CUBE?)."
+  fi
+}
+
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
 cubevar_api_post_restart=""
 
@@ -1346,6 +1382,7 @@ if [ "${POSIXCUBE_REMOTE}" = "" ]; then
   p666_skip_host_errors=0
   p666_hosts=""
   p666_cubes=""
+  p666_include_cubes=""
   p666_envar_scripts=""
   p666_envar_scripts_password=""
   p666_user="${USER}"
@@ -1486,7 +1523,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
+    while getopts "?vdqbskyh:u:c:e:p:w:r:o:z:i:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1524,6 +1561,9 @@ HEREDOC
         ;;
       c)
         p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
+        ;;
+      i)
+        p666_include_cubes=$(cube_append_str "${p666_include_cubes}" "${OPTARG}")
         ;;
       e)
         if [ ! -r "${OPTARG}" ]; then
@@ -1851,6 +1891,22 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
       p666_script_contents="${p666_script_contents}${POSIXCUBE_NEWLINE}cd \${cube_initial_directory}"
     done
     
+    for p666_cube in ${p666_include_cubes}; do
+      if [ -d "${p666_cube}" ]; then
+        p666_cube_name=$(basename "${p666_cube}")
+        if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
+          chmod u+x ${p666_cube}/*.sh
+        fi
+      elif [ -r "${p666_cube}" ]; then
+        chmod u+x "${p666_cube}"
+      elif [ -r "${p666_cube}.sh" ]; then
+        chmod u+x "${p666_cube}.sh"
+      else
+        p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
+        exit 1
+      fi
+    done
+    
     if [ "${p666_commands}" != "" ]; then
       p666_script_contents="${p666_script_contents}
   ${p666_commands}"
@@ -1898,6 +1954,27 @@ HEREDOC
         elif [ -r "${p666_cube}.sh" ]; then
           p666_cube_name=$(basename "${p666_cube}.sh")
           p666_upload="${p666_upload} ${p666_cube}.sh"
+        fi
+      done
+    fi
+
+    if [ "${p666_include_cubes}" != "" ]; then
+      for p666_cube in ${p666_include_cubes}; do
+        if [ -d "${p666_cube}" ]; then
+          p666_cube_name=$(basename "${p666_cube}")
+          if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
+            p666_cube=${p666_cube%/}
+            p666_upload="${p666_upload} ${p666_cube}"
+          fi
+        elif [ -r "${p666_cube}" ]; then
+          p666_cube_name=$(basename "${p666_cube}")
+          p666_upload="${p666_upload} ${p666_cube}"
+        elif [ -r "${p666_cube}.sh" ]; then
+          p666_cube_name=$(basename "${p666_cube}.sh")
+          p666_upload="${p666_upload} ${p666_cube}.sh"
+        else
+          p666_printf_error "Could not find ${p666_cube}"
+          exit 1
         fi
       done
     fi

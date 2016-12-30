@@ -24,10 +24,13 @@
                 temporarily. If not specified, defaults to envars*sh envars*sh.enc
       -p PWD    Password for decrypting .enc ENVAR files.
       -w PWDF   File that contains the password for decrypting .enc ENVAR files.
+                Defaults to ~/.posixcube.pwd
       -r ROLE   Role name. Option may be specified multiple times.
       -o P=V    Set the specified parameter P with the value V. Do not put double
                 quotes around V. If V contains *, try to find matching hosts per
                 the -h algorithm. Option may be specified multiple times.
+      -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
+                includes this CUBE using cube_include.
       -v        Show version information.
       -d        Print debugging information.
       -q        Quiet; minimize output.
@@ -58,7 +61,8 @@
       such as templates using relative paths.
       
       An ENVAR script is encouraged to use environment variable names of the form
-      cubevar_${uniquecontext}_envar="value".
+      cubevar_${uniquecontext}_envar="value". If a CUBE directory contains the
+      file `envars.sh`, it's sourced before anything else (including `-e ENVARs`).
       
       Both CUBEs and COMMANDs may execute any of the functions defined in the
       "Public APIs" in the posixcube.sh script. Short descriptions of the functions
@@ -296,6 +300,34 @@
       * cube_hostname
           Echo full hostname.
           Example: cube_hostname
+
+      * cube_user_exists
+          Check if the $1 user exists
+          Example: cube_user_exists nginx
+
+      * cube_create_user
+          Create the user $1
+          Example: cube_create_user nginx
+
+      * cube_group_exists
+          Check if the $1 group exists
+          Example: cube_group_exists nginx
+
+      * cube_create_group
+          Create the group $1
+          Example: cube_create_group nginx
+
+      * cube_group_contains_user
+          Check if the $1 group contains the user $2
+          Example: cube_group_contains_user nginx nginx
+
+      * cube_add_group_user
+          Add the user $2 to group $1
+          Example: cube_add_group_user nginx nginx
+
+      * cube_include
+          Include the ${1} cube
+          Example: cube_include core_cube
 
     Source: https://github.com/myplaceonline/posixcube
 
