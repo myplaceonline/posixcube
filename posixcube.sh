@@ -1486,7 +1486,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqiskh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
+    while getopts "?vdqiskyh:u:c:e:p:w:r:o:z:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
