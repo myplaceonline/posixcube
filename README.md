@@ -36,10 +36,15 @@
                 posixcube.sh, etc.
       -k        Keep the cube_exec.sh generated script.
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
+      -y        If a HOST returns a non-zero code, continue processing other HOSTs.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
                   show: Decrypt and print ENVAR file.
+                  source: Source all ENVAR files. Must be run with
+                          POSIXCUBE_SOURCED=true and often this command execution
+                          is itself sourced (and then POSIXCUBE_SOURCED is reset
+                          to "").
 
     Description:
 
