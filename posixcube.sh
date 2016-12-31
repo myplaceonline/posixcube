@@ -71,6 +71,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             posixcube.sh, etc.
   -k        Keep the cube_exec.sh generated script.
   -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
+  -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
@@ -1360,7 +1361,7 @@ cube_include() {
     cube_echo "Including ${cube_include_name} cube..."
     . "../${cube_include_name}.sh"
   else
-    cube_throw "Cube not found (did you upload it with -i CUBE?)."
+    cube_throw "Cube ${cube_include_name} not found (did you upload it with -i ${cube_include_name} ?)."
   fi
 }
 
@@ -1390,6 +1391,12 @@ if [ "${POSIXCUBE_REMOTE}" = "" ]; then
   p666_roles=""
   p666_options=""
   p666_specfile="./cubespecs.ini"
+  p666_parallel=0
+  p666_async_cubes=0
+  
+  if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
+    p666_parallel=64
+  fi
 
   p666_show_version() {
     p666_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
@@ -1523,7 +1530,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyh:u:c:e:p:w:r:o:z:i:" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:p:w:r:o:z:i:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1546,6 +1553,9 @@ HEREDOC
         ;;
       y)
         p666_skip_host_errors=1
+        ;;
+      a)
+        p666_async_cubes=1
         ;;
       b)
         p666_install
@@ -1768,13 +1778,18 @@ HEREDOC
       p666_remote_ssh_commands="$1"
       [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
       
-      ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
-      p666_host_output_result=$?
-      
-      [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}"
-      
-      p666_handle_remote_response
-      return ${p666_host_output_result}
+      if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
+        ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
+      else
+        ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        p666_host_output_result=$?
+        
+        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}"
+        
+        p666_handle_remote_response
+        return ${p666_host_output_result}
+      fi
     }
 
     p666_remote_transfer() {
@@ -1783,9 +1798,14 @@ HEREDOC
       [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
       
       # Don't use -a so that ownership is picked up from the specified user
-      rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}"
-      p666_host_output_result=$?
-      p666_handle_remote_response
+      if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
+        rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" &
+        p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
+      else
+        rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}"
+        p666_host_output_result=$?
+        p666_handle_remote_response
+      fi
     }
 
     p666_cubedir=${p666_cubedir%/}
@@ -1981,12 +2001,20 @@ HEREDOC
 
     [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
     
+    p666_async=1
+    
     if [ ${p666_skip_init} -eq 0 ]; then
+      p666_wait_pids=""
       for p666_host in ${p666_hosts}; do
         p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
       done
+      if [ "${p666_wait_pids}" != "" ]; then
+        [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on initialization PIDs: ${p666_wait_pids} ...\n"
+        wait ${p666_wait_pids}
+      fi
     fi
     
+    p666_wait_pids=""
     for p666_host in ${p666_hosts}; do
       if [ ${p666_skip_init} -eq 0 ]; then
         p666_remote_transfer "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
@@ -1994,13 +2022,28 @@ HEREDOC
         p666_remote_transfer "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
       fi
     done
+    
+    if [ "${p666_wait_pids}" != "" ]; then
+      [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
+      wait ${p666_wait_pids}
+    fi
 
+    p666_wait_pids=""
+    p666_async=${p666_async_cubes}
+    
     for p666_host in ${p666_hosts}; do
       [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
       p666_remote_ssh ". ${p666_cubedir}/${p666_script}"
-      p666_remote_ssh_result=$?
-      [ ${p666_skip_host_errors} -eq 0 ] && p666_exit ${p666_remote_ssh_result}
+      if [ ${p666_async} -eq 0 ]; then
+        p666_remote_ssh_result=$?
+        [ ${p666_skip_host_errors} -eq 0 ] && [ ${p666_remote_ssh_result} -ne 0 ] && p666_exit ${p666_remote_ssh_result}
+      fi
     done
+
+    if [ "${p666_wait_pids}" != "" ]; then
+      [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on cube execution PIDs: ${p666_wait_pids} ...\n"
+      wait ${p666_wait_pids}
+    fi
 
     p666_exit 0
   fi

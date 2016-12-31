@@ -39,6 +39,7 @@
                 posixcube.sh, etc.
       -k        Keep the cube_exec.sh generated script.
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
+      -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
