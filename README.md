@@ -212,8 +212,12 @@
           Example: cube_check_file_exists /etc/cron.d/0hourly
 
       * cube_operating_system
-          Detect operating system and return one of the CUBE_OS_* values.
+          Detect operating system and return one of the POSIXCUBE_OS_* values.
           Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
+
+      * cube_operating_system_flavor
+          Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
+          Example: [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ] && ...
 
       * cube_shell
           Detect running shell and return one of the CUBE_SHELL_* values.

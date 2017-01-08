@@ -244,8 +244,12 @@ API:
       Example: cube_check_file_exists /etc/cron.d/0hourly
 
   * cube_operating_system
-      Detect operating system and return one of the CUBE_OS_* values.
+      Detect operating system and return one of the POSIXCUBE_OS_* values.
       Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
+
+  * cube_operating_system_flavor
+      Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
+      Example: [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ] && ...
 
   * cube_shell
       Detect running shell and return one of the CUBE_SHELL_* values.
@@ -392,6 +396,10 @@ POSIXCUBE_OS_UNKNOWN=-1
 POSIXCUBE_OS_LINUX=1
 POSIXCUBE_OS_MAC_OSX=2
 POSIXCUBE_OS_WINDOWS=3
+
+POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
+POSIXCUBE_OS_FLAVOR_FEDORA=1
+POSIXCUBE_OS_FLAVOR_DEBIAN=2
 
 POSIXCUBE_SHELL_UNKNOWN=-1
 POSIXCUBE_SHELL_BASH=1
@@ -634,7 +642,7 @@ cube_check_file_exists() {
 }
 
 # Description:
-#   Detect operating system and return one of the CUBE_OS_* values.
+#   Detect operating system and return one of the POSIXCUBE_OS_* values.
 # Example call:
 #   if [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ]; then ...
 # Arguments: None
@@ -654,6 +662,21 @@ cube_operating_system() {
       echo ${POSIXCUBE_OS_UNKNOWN}
       ;;
   esac
+}
+
+# Description:
+#   Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
+# Example call:
+#   if [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ]; then ...
+# Arguments: None
+cube_operating_system_flavor() {
+  if cube_check_file_exists "/etc/fedora-release"; then
+    echo ${POSIXCUBE_OS_FLAVOR_FEDORA}
+  elif cube_check_file_exists "/etc/lsb-release"; then
+    echo ${POSIXCUBE_OS_FLAVOR_DEBIAN}
+  else
+    echo ${POSIXCUBE_OS_FLAVOR_UNKNOWN}
+  fi
 }
 
 # Description:
@@ -742,8 +765,11 @@ cube_package() {
   elif cube_check_command_exists yum ; then
     cube_echo "Executing yum -y ${@}"
     yum -y "${@}" || cube_check_return
+  elif cube_check_command_exists apt-get ; then
+    cube_echo "Executing apt-get -y ${@}"
+    apt-get -y "${@}" || cube_check_return
   else
-    cube_throw "Could not find package program"
+    cube_throw "cube_package has not implemented your operating system yet"
   fi
 }
 
@@ -1779,10 +1805,10 @@ HEREDOC
       [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        ssh -o ConnectTimeout=10 ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        ssh -o ConnectTimeout=10 ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}"
@@ -2034,8 +2060,8 @@ HEREDOC
     for p666_host in ${p666_hosts}; do
       [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
       p666_remote_ssh ". ${p666_cubedir}/${p666_script}"
+      p666_remote_ssh_result=$?
       if [ ${p666_async} -eq 0 ]; then
-        p666_remote_ssh_result=$?
         [ ${p666_skip_host_errors} -eq 0 ] && [ ${p666_remote_ssh_result} -ne 0 ] && p666_exit ${p666_remote_ssh_result}
       fi
     done
