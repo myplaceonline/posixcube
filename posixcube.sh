@@ -159,6 +159,11 @@ Philosophy:
   sub-shell, although any failures will be reported by cube_check_return,
   the script will continue unless you also check the return of the sub-shell.
   For example: $(cube_readlink /etc/localtime) || cube_check_return
+  With this strategy, unfortunately piping becomes more difficult. There are
+  non-standard mechanisms like pipefail and PIPESTATUS, but the standardized
+  approach is to run each command separately and check the status. For example:
+  cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
+  cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
   
   We do not use `set -e` because some functions may handle all errors
   internally (with `cube_check_return`) and use a positive return code as a
@@ -247,9 +252,10 @@ API:
       Detect operating system and return one of the POSIXCUBE_OS_* values.
       Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
-  * cube_operating_system_flavor
-      Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
-      Example: [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ] && ...
+  * cube_operating_system_has_flavor
+      Check if the operating system flavor includes the flavor specified in $1
+      by one of the POSIXCUBE_OS_FLAVOR_* values.
+      Example: cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} && ...
 
   * cube_shell
       Detect running shell and return one of the CUBE_SHELL_* values.
@@ -400,6 +406,7 @@ POSIXCUBE_OS_WINDOWS=3
 POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
 POSIXCUBE_OS_FLAVOR_FEDORA=1
 POSIXCUBE_OS_FLAVOR_DEBIAN=2
+POSIXCUBE_OS_FLAVOR_UBUNTU=3
 
 POSIXCUBE_SHELL_UNKNOWN=-1
 POSIXCUBE_SHELL_BASH=1
@@ -665,18 +672,30 @@ cube_operating_system() {
 }
 
 # Description:
-#   Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
+#   Check if the operating system flavor includes the flavor specified in $1 by one of the POSIXCUBE_OS_FLAVOR_* values.
 # Example call:
-#   if [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ]; then ...
-# Arguments: None
-cube_operating_system_flavor() {
-  if cube_check_file_exists "/etc/fedora-release"; then
-    echo ${POSIXCUBE_OS_FLAVOR_FEDORA}
-  elif cube_check_file_exists "/etc/lsb-release"; then
-    echo ${POSIXCUBE_OS_FLAVOR_DEBIAN}
-  else
-    echo ${POSIXCUBE_OS_FLAVOR_UNKNOWN}
-  fi
+#   if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} ; then ...
+# Arguments:
+#   Required:
+#     $1: One of the POSIXCUBE_OS_FLAVOR_* values.
+cube_operating_system_has_flavor() {
+  cube_check_numargs 1 "${@}"
+  case "${1}" in
+    ${POSIXCUBE_OS_FLAVOR_FEDORA})
+      if cube_check_file_exists "/etc/fedora-release"; then
+        return 0
+      fi
+      ;;
+    ${POSIXCUBE_OS_FLAVOR_DEBIAN}|${POSIXCUBE_OS_FLAVOR_UBUNTU})
+      if cube_check_file_exists "/etc/lsb-release"; then
+        return 0
+      fi
+      ;;
+    *)
+      cube_throw "Unknown flavor ${1}"
+      ;;
+  esac
+  return 1
 }
 
 # Description:
@@ -749,6 +768,27 @@ cube_service() {
 }
 
 # Description:
+#   Return 0 if service $1 exists; otherwise, 1
+# Example call:
+#   cube_service_exists kdump
+# Arguments:
+#   Required:
+#     $1: Service name.
+cube_service_exists() {
+  cube_check_numargs 1 "${@}"
+  if cube_check_command_exists systemctl ; then
+    systemctl status ${1} >/dev/null 2>&1
+    if [ $? -eq 3 ]; then
+      return 1
+    else
+      return 0
+    fi
+  else
+    cube_throw "Not implemented"
+  fi
+}
+
+# Description:
 #   Pass $@ to the package manager. Implicitly passes the the parameter
 #   to say yes to questions.
 # Example call:
@@ -767,7 +807,7 @@ cube_package() {
     yum -y "${@}" || cube_check_return
   elif cube_check_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${@}"
-    apt-get -y "${@}" || cube_check_return
+    DEBIAN_FRONTEND=noninteractive apt-get -y "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi

@@ -127,6 +127,11 @@
       sub-shell, although any failures will be reported by cube_check_return,
       the script will continue unless you also check the return of the sub-shell.
       For example: $(cube_readlink /etc/localtime) || cube_check_return
+      With this strategy, unfortunately piping becomes more difficult. There are
+      non-standard mechanisms like pipefail and PIPESTATUS, but the standardized
+      approach is to run each command separately and check the status. For example:
+      cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
+      cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
       
       We do not use `set -e` because some functions may handle all errors
       internally (with `cube_check_return`) and use a positive return code as a
@@ -215,9 +220,10 @@
           Detect operating system and return one of the POSIXCUBE_OS_* values.
           Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
-      * cube_operating_system_flavor
-          Detect operating system flavor and return one of the POSIXCUBE_OS_FLAVOR_* values.
-          Example: [ $(cube_operating_system_flavor) -eq ${POSIXCUBE_OS_FLAVOR_FEDORA} ] && ...
+      * cube_operating_system_has_flavor
+          Check if the operating system flavor includes the flavor specified in $1
+          by one of the POSIXCUBE_OS_FLAVOR_* values.
+          Example: cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} && ...
 
       * cube_shell
           Detect running shell and return one of the CUBE_SHELL_* values.
