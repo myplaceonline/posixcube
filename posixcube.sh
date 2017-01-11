@@ -686,10 +686,14 @@ cube_operating_system_has_flavor() {
         return 0
       fi
       ;;
-    ${POSIXCUBE_OS_FLAVOR_DEBIAN}|${POSIXCUBE_OS_FLAVOR_UBUNTU})
+    ${POSIXCUBE_OS_FLAVOR_UBUNTU})
       if cube_check_file_exists "/etc/lsb-release"; then
         return 0
       fi
+      ;;
+    ${POSIXCUBE_OS_FLAVOR_DEBIAN})
+      cube_file_contains /etc/os-release "NAME=\"Debian"
+      return $?
       ;;
     *)
       cube_throw "Unknown flavor ${1}"
@@ -777,12 +781,9 @@ cube_service() {
 cube_service_exists() {
   cube_check_numargs 1 "${@}"
   if cube_check_command_exists systemctl ; then
-    systemctl status ${1} >/dev/null 2>&1
-    if [ $? -eq 3 ]; then
-      return 1
-    else
-      return 0
-    fi
+    cube_service_exists_output="$(systemctl status ${1} 2>&1)"
+    echo "${cube_service_exists_output}" | grep -l loaded >/dev/null 2>&1
+    return $?
   else
     cube_throw "Not implemented"
   fi
@@ -807,6 +808,7 @@ cube_package() {
     yum -y "${@}" || cube_check_return
   elif cube_check_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${@}"
+    # -o Dpkg::Options::="--force-confnew"
     DEBIAN_FRONTEND=noninteractive apt-get -y "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
@@ -1829,15 +1831,22 @@ HEREDOC
     [ ${p666_debug} -eq 1 ] && p666_show_version
     
     p666_handle_remote_response() {
+      p666_handle_remote_response_context="${1}"
+      if [ "${p666_handle_remote_response_context}" = "" ]; then
+        p666_handle_remote_response_context="Last command"
+      fi
       p666_host_output_color=${POSIXCUBE_COLOR_GREEN}
       p666_host_output=""
       if [ ${p666_host_output_result} -ne 0 ]; then
         p666_host_output_color=${POSIXCUBE_COLOR_RED}
-        p666_host_output="Last command failed with return code ${p666_host_output_result}"
+        p666_host_output="${p666_handle_remote_response_context} failed with return code ${p666_host_output_result}"
       else
         [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded."
       fi
       [ "${p666_host_output}" != "" ] && p666_printf "[${p666_host_output_color}${p666_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
+      if [ ${p666_host_output_result} -ne 0 ]; then
+        exit ${p666_host_output_result}
+      fi
     }
 
     p666_remote_ssh() {
@@ -1851,9 +1860,9 @@ HEREDOC
         ssh -o ConnectTimeout=10 ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
         p666_host_output_result=$?
         
-        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}"
+        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}\n"
         
-        p666_handle_remote_response
+        p666_handle_remote_response "Remote commands through SSH"
         return ${p666_host_output_result}
       fi
     }
@@ -1865,12 +1874,14 @@ HEREDOC
       
       # Don't use -a so that ownership is picked up from the specified user
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
+        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in background: ${p666_remote_transfer_source} ${p666_user}@${p666_host}:${p666_remote_transfer_dest}\n"
         rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
+        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in foreground: ${p666_remote_transfer_source} ${p666_user}@${p666_host}:${p666_remote_transfer_dest}\n"
         rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}"
         p666_host_output_result=$?
-        p666_handle_remote_response
+        p666_handle_remote_response "rsync"
       fi
     }
 
@@ -1940,7 +1951,7 @@ rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
           p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
 cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube: ${p666_cube_name}\"
 "
           if [ -r "${p666_cube}/envars.sh" ]; then
@@ -1958,7 +1969,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
         p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
 cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube: ${p666_cube_name}\"
 "
       elif [ -r "${p666_cube}.sh" ]; then
@@ -1967,7 +1978,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
         p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
 cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\"/${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
 cube_echo \"Finished cube: ${p666_cube_name}\"
 "
       else
@@ -2072,11 +2083,15 @@ HEREDOC
     if [ ${p666_skip_init} -eq 0 ]; then
       p666_wait_pids=""
       for p666_host in ${p666_hosts}; do
-        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+        # Debian doesn't have rsync installed by default
+        #p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && apt-get -y install rsync); exit \${RC};"
       done
       if [ "${p666_wait_pids}" != "" ]; then
         [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on initialization PIDs: ${p666_wait_pids} ...\n"
         wait ${p666_wait_pids}
+        p666_host_output_result=$?
+        p666_handle_remote_response "Remote commands through SSH"
       fi
     fi
     
@@ -2092,6 +2107,8 @@ HEREDOC
     if [ "${p666_wait_pids}" != "" ]; then
       [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
       wait ${p666_wait_pids}
+      p666_host_output_result=$?
+      p666_handle_remote_response "rsync"
     fi
 
     p666_wait_pids=""
@@ -2109,6 +2126,8 @@ HEREDOC
     if [ "${p666_wait_pids}" != "" ]; then
       [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on cube execution PIDs: ${p666_wait_pids} ...\n"
       wait ${p666_wait_pids}
+      p666_host_output_result=$?
+      p666_handle_remote_response "Cube execution"
     fi
 
     p666_exit 0
