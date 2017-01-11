@@ -32,6 +32,10 @@
 #   7. https://wiki.ubuntu.com/DashAsBinSh
 
 p666_show_usage() {
+  if [ "${@}" != "" ]; then
+    p666_printf_error "${@}"
+  fi
+
   # When updating usage, also update README.md.
   cat <<'HEREDOC'
 usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
@@ -78,9 +82,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
               show: Decrypt and print ENVAR file.
               source: Source all ENVAR files. Must be run with
-                      POSIXCUBE_SOURCED=true and often this command execution
-                      is itself sourced (and then POSIXCUBE_SOURCED is reset
-                      to "").
+                      POSIXCUBE_SOURCED (see Public Variables section below).
 
 Description:
 
@@ -99,11 +101,10 @@ Description:
   
   Both CUBEs and COMMANDs may execute any of the functions defined in the
   "Public APIs" in the posixcube.sh script. Short descriptions of the functions
-  is in the APIs section below. See the source comments above each function
+  are in the APIs section below. See the source comments above each function
   for details.
   
-Examples (assuming posixcube.sh directory is on ${PATH}, or you may execute
-          it using an absolute path):
+Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
 
   posixcube.sh -h socrates uptime
   
@@ -186,9 +187,10 @@ Frequently Asked Questions:
 Cube Development:
 
   Shell scripts don't have scoping, so to reduce the chances of function name
-  conflicts, name functions cube_${cubename}_${function}
+  conflicts, name functions cube_${cubename}_${function} and name variables
+  cubevar_${cubename}_${var}.
 
-API:
+Public APIs:
   
   * cube_echo
       Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and
@@ -219,13 +221,13 @@ API:
       Check if $? is non-zero and call cube_throw if so.
       Example: some_command || cube_check_return
 
+  * cube_include
+      Include the ${1} cube
+      Example: cube_include core_cube
+
   * cube_check_numargs
       Call cube_throw if there are less than $1 arguments in $@
       Example: cube_check_numargs 2 "${@}"
-
-  * cube_append_str
-      Echo $1 with $2 appended after a space if $1 was not blank.
-      Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
   * cube_service
       Run the $1 action on the $2 service.
@@ -236,17 +238,21 @@ API:
       to say yes to questions.
       Example: cube_package install python
 
-  * cube_check_command_exists
+  * cube_append_str
+      Echo $1 with $2 appended after a space if $1 was not blank.
+      Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
+
+  * cube_command_exists
       Check if $1 command or function exists in the current context.
-      Example: cube_check_command_exists systemctl
+      Example: cube_command_exists systemctl
 
-  * cube_check_dir_exists
+  * cube_dir_exists
       Check if $1 exists as a directory.
-      Example: cube_check_dir_exists /etc/cron.d/
+      Example: cube_dir_exists /etc/cron.d/
 
-  * cube_check_file_exists
+  * cube_file_exists
       Check if $1 exists as a file with read access.
-      Example: cube_check_file_exists /etc/cron.d/0hourly
+      Example: cube_file_exists /etc/cron.d/0hourly
 
   * cube_operating_system
       Detect operating system and return one of the POSIXCUBE_OS_* values.
@@ -269,9 +275,9 @@ API:
       echo the absolute path the currently executing script.
       Example: script_name=$(cube_current_script_abs_path)
 
-  * cube_get_file_size
+  * cube_file_size
       echo the size of a file $1 in bytes
-      Example: cube_get_file_size some_file
+      Example: cube_file_size some_file
 
   * cube_set_file_contents
       Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
@@ -335,6 +341,10 @@ API:
       Echo the IPv4 address of interface $1
       Example: cube_interface_ipv4_address eth0
 
+  * cube_interface_ipv6_address
+      Echo the IPv6 address of interface $1
+      Example: cube_interface_ipv6_address eth0
+
   * cube_prompt
       Prompt the question $1 followed by " (y/N)" and prompt for an answer.
       A blank string answer is equivalent to No. Return true if yes, false otherwise.
@@ -368,14 +378,27 @@ API:
       Add the user $2 to group $1
       Example: cube_add_group_user nginx nginx
 
-  * cube_include
-      Include the ${1} cube
-      Example: cube_include core_cube
+Public Variables:
+
+  * POSIXCUBE_APIS_ONLY
+      Set this to any value to only source the public APIs in posixcube.sh.
+      Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo Test
+  
+  * POSIXCUBE_SOURCED
+      Set this to any value to only run a sub-COMMAND, most commonly `source`,
+      to source in all ENVAR files, but skip actual execution of posixcube.
+      Example: POSIXCUBE_SOURCED=true . posixcube.sh source; POSIXCUBE_SOURCED=
 
 Source: https://github.com/myplaceonline/posixcube
-
 HEREDOC
-  exit 1
+
+  if [ "${@}" != "" ]; then
+    p666_printf_error "${@}"
+  fi
+
+  if [ "${POSIXCUBE_SOURCED}" = "" ]; then
+    exit 1
+  fi
 }
 
 ###############
@@ -500,11 +523,11 @@ cube_throw() {
   
   cube_throw_pid=$$
   
-  if cube_check_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
+  if cube_command_exists caller || [ -r /proc/${cube_throw_pid}/cmdline ]; then
     cube_error_echo Stack:
   fi
   
-  if cube_check_command_exists caller ; then
+  if cube_command_exists caller ; then
     x=0
     while true; do
       cube_error_caller=$(caller $x)
@@ -546,7 +569,7 @@ cube_throw() {
 #   Optional:
 #     $1: If a result is returned, prepend with $1
 cube_line_number() {
-  if cube_check_command_exists caller ; then
+  if cube_command_exists caller ; then
     x=0
     while true; do
       cube_api_caller_output=$(caller $x)
@@ -615,11 +638,11 @@ cube_append_str() {
 # Description:
 #   Check if $1 command or function exists in the current context.
 # Example call:
-#   cube_check_command_exists systemctl
+#   cube_command_exists systemctl
 # Arguments:
 #   Required:
 #     $1: Command or function name.
-cube_check_command_exists() {
+cube_command_exists() {
   cube_check_numargs 1 "${@}"
   command -v ${1} >/dev/null 2>&1
 }
@@ -627,11 +650,11 @@ cube_check_command_exists() {
 # Description:
 #   Check if $1 exists as a directory.
 # Example call:
-#   cube_check_dir_exists /etc/cron.d/
+#   cube_dir_exists /etc/cron.d/
 # Arguments:
 #   Required:
 #     $1: Directory name.
-cube_check_dir_exists() {
+cube_dir_exists() {
   cube_check_numargs 1 "${@}"
   [ -d "${1}" ]
 }
@@ -639,11 +662,11 @@ cube_check_dir_exists() {
 # Description:
 #   Check if $1 exists as a file with read access.
 # Example call:
-#   cube_check_file_exists /etc/cron.d/0hourly
+#   cube_file_exists /etc/cron.d/0hourly
 # Arguments:
 #   Required:
 #     $1: File name.
-cube_check_file_exists() {
+cube_file_exists() {
   cube_check_numargs 1 "${@}"
   [ -r "${1}" ]
 }
@@ -682,18 +705,19 @@ cube_operating_system_has_flavor() {
   cube_check_numargs 1 "${@}"
   case "${1}" in
     ${POSIXCUBE_OS_FLAVOR_FEDORA})
-      if cube_check_file_exists "/etc/fedora-release"; then
+      if cube_file_exists "/etc/fedora-release"; then
         return 0
       fi
       ;;
     ${POSIXCUBE_OS_FLAVOR_UBUNTU})
-      if cube_check_file_exists "/etc/lsb-release"; then
+      if cube_file_exists "/etc/lsb-release"; then
         return 0
       fi
       ;;
     ${POSIXCUBE_OS_FLAVOR_DEBIAN})
-      cube_file_contains /etc/os-release "NAME=\"Debian"
-      return $?
+      if cube_file_contains /etc/os-release "NAME=\"Debian" || cube_file_exists "/etc/lsb-release"; then
+        return 0
+      fi
       ;;
     *)
       cube_throw "Unknown flavor ${1}"
@@ -740,13 +764,13 @@ cube_check_numargs() {
 #     $2: Service name.
 cube_service() {
   cube_check_numargs 1 "${@}"
-  if cube_check_command_exists systemctl ; then
+  if cube_command_exists systemctl ; then
     if [ "${1}" = "daemon-reload" ]; then
       systemctl $1 || cube_check_return
     else
       systemctl $1 $2 || cube_check_return
     fi
-  elif cube_check_command_exists service ; then
+  elif cube_command_exists service ; then
     if [ "${1}" != "daemon-reload" ]; then
       service $2 $1 || cube_check_return
     fi
@@ -780,7 +804,7 @@ cube_service() {
 #     $1: Service name.
 cube_service_exists() {
   cube_check_numargs 1 "${@}"
-  if cube_check_command_exists systemctl ; then
+  if cube_command_exists systemctl ; then
     cube_service_exists_output="$(systemctl status ${1} 2>&1)"
     echo "${cube_service_exists_output}" | grep -l loaded >/dev/null 2>&1
     return $?
@@ -800,13 +824,13 @@ cube_service_exists() {
 cube_package() {
   cube_check_numargs 1 "${@}"
   
-  if cube_check_command_exists dnf ; then
+  if cube_command_exists dnf ; then
     cube_echo "Executing dnf -y ${@}"
     dnf -y "${@}" || cube_check_return
-  elif cube_check_command_exists yum ; then
+  elif cube_command_exists yum ; then
     cube_echo "Executing yum -y ${@}"
     yum -y "${@}" || cube_check_return
-  elif cube_check_command_exists apt-get ; then
+  elif cube_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${@}"
     # -o Dpkg::Options::="--force-confnew"
     DEBIAN_FRONTEND=noninteractive apt-get -y "${@}" || cube_check_return
@@ -837,13 +861,13 @@ cube_current_script_abs_path() {
 # Description:
 #   echo the size of a file $1 in bytes
 # Example call:
-#   cube_get_file_size some_file
+#   cube_file_size some_file
 # Arguments:
 #   Required:
 #     $1: File
-cube_get_file_size() {
+cube_file_size() {
   cube_check_numargs 1 "${@}"
-  if cube_check_file_exists "${1}" ; then
+  if cube_file_exists "${1}" ; then
     wc -c < "${1}"
   else
     cube_throw "Could not find or read file ${1}"
@@ -925,7 +949,7 @@ cube_set_file_contents() {
   cube_set_file_contents_needs_replace=0
   cube_set_file_contents_input_file_needs_remove=0
   
-  if ! cube_check_file_exists "${cube_set_file_contents_input_file}" ; then
+  if ! cube_file_exists "${cube_set_file_contents_input_file}" ; then
     cube_throw "Could not find or read input ${cube_set_file_contents_input_file}"
   fi
   
@@ -955,11 +979,11 @@ cube_set_file_contents() {
     cube_set_file_contents_input_file_needs_remove=1
   fi
   
-  if cube_check_file_exists "${cube_set_file_contents_target_file}" ; then
+  if cube_file_exists "${cube_set_file_contents_target_file}" ; then
   
     # If the file sizes are different, then replace the file (http://stackoverflow.com/a/5920355/5657303)
-    cube_set_file_contents_target_file_size=$(cube_get_file_size "${cube_set_file_contents_target_file}")
-    cube_set_file_contents_input_file_size=$(cube_get_file_size "${cube_set_file_contents_input_file}")
+    cube_set_file_contents_target_file_size=$(cube_file_size "${cube_set_file_contents_target_file}")
+    cube_set_file_contents_input_file_size=$(cube_file_size "${cube_set_file_contents_input_file}")
     
     if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
       cube_echo "Target file ${cube_set_file_contents_target_file} exists. Target size: ${cube_set_file_contents_target_file_size}, source size: ${cube_set_file_contents_input_file_size}"
@@ -1055,7 +1079,7 @@ cube_readlink() {
   # http://stackoverflow.com/a/697552/5657303
   # Don't bother trying to short-circuit with readlink because of issues on
   # Mac. We could special case that, but meh.
-  #if cube_check_command_exists readlink ; then
+  #if cube_command_exists readlink ; then
   #  readlink -f $1
   #else
     cube_readlink_target=$1
@@ -1111,7 +1135,7 @@ cube_ensure_directory() {
   cube_check_numargs 1 "${@}"
   cube_ensure_directory_result=1
   
-  if ! cube_check_dir_exists "${1}"; then
+  if ! cube_dir_exists "${1}"; then
     mkdir -p "${1}" || cube_check_return
     cube_ensure_directory_result=0
     cube_echo "Created directory ${1}"
@@ -1144,7 +1168,7 @@ cube_ensure_file() {
   cube_check_numargs 1 "${@}"
   cube_ensure_file_result=1
   
-  if ! cube_check_file_exists "${1}"; then
+  if ! cube_file_exists "${1}"; then
   
     cube_ensure_directory "$(dirname "${1}")" $2 $3 $4
   
@@ -1175,7 +1199,7 @@ cube_ensure_file() {
 cube_pushd() {
   cube_check_numargs 1 "${@}"
   
-  if cube_check_command_exists pushd ; then
+  if cube_command_exists pushd ; then
     pushd "${@}" || cube_check_return
   else
     cube_throw "TODO: Not implemented"
@@ -1188,7 +1212,7 @@ cube_pushd() {
 #   cube_popd
 # Arguments: None
 cube_popd() {
-  if cube_check_command_exists popd ; then
+  if cube_command_exists popd ; then
     popd "${@}" || cube_check_return
   else
     cube_throw "TODO: Not implemented"
@@ -1263,6 +1287,18 @@ cube_stdin_contains() {
 cube_interface_ipv4_address() {
   cube_check_numargs 1 "${@}"
   ip -4 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
+}
+
+# Description:
+#   Echo the IPv4 address of interface $1
+# Example call:
+#   cube_interface_ipv4_address eth0
+# Arguments:
+#   Required:
+#     $1: Interface name
+cube_interface_ipv4_address() {
+  cube_check_numargs 1 "${@}"
+  ip -6 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
 
 # Description:
@@ -1438,12 +1474,16 @@ cubevar_api_post_restart=""
 
 cubevar_api_roles=""
 
+###################
+# End Public APIs #
+###################
+
 ################################
 # Core internal implementation #
 ################################
 
 # If we're being sourced on the remote machine, then we don't want to run any of the below
-if [ "${POSIXCUBE_REMOTE}" = "" ]; then
+if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_debug=0
   p666_quiet=0
   p666_skip_init=0
@@ -1461,6 +1501,7 @@ if [ "${POSIXCUBE_REMOTE}" = "" ]; then
   p666_specfile="./cubespecs.ini"
   p666_parallel=0
   p666_async_cubes=0
+  p666_default_envars="envars*sh envars*sh.enc"
   
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1711,7 +1752,7 @@ HEREDOC
   [ "$1" = "--" ] && shift
   
   if [ "${p666_envar_scripts}" = "" ]; then
-    p666_envar_scripts="$(ls -1 envars*sh envars*sh.enc 2>/dev/null | paste -sd ' ' -)"
+    p666_envar_scripts="$(ls -1 ${p666_default_envars} 2>/dev/null | paste -sd ' ' -)"
   fi
 
   if [ "${p666_envar_scripts}" != "" ]; then
@@ -1729,7 +1770,7 @@ HEREDOC
             for p666_envar_script in ${p666_envar_scripts}; do
               p666_envar_scripts_enc=$(expr ${p666_envar_script} : '.*enc$')
               if [ ${p666_envar_scripts_enc} -ne 0 ]; then
-                if cube_check_command_exists gpg ; then
+                if cube_command_exists gpg ; then
                   p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
                   
                   if [ "${p666_envar_scripts_password}" = "" ]; then
@@ -1763,15 +1804,13 @@ HEREDOC
                       fi
                       ;;
                     *)
-                      p666_printf_error "Not implemented"
-                      p666_show_usage
+                      p666_show_usage "Not implemented"
                       ;;
                   esac
                   
                   rm -f "${p666_envar_script_new}" || cube_check_return
                 else
-                  p666_printf_error "gpg program not found on the PATH"
-                  p666_show_usage
+                  p666_show_usage "gpg program not found on the PATH"
                 fi
               else
                 case "${1}" in
@@ -1783,8 +1822,7 @@ HEREDOC
                     [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
                     ;;
                   *)
-                    p666_printf_error "Not implemented"
-                    p666_show_usage
+                    p666_show_usage "Not implemented"
                     ;;
                 esac
               fi
@@ -1799,8 +1837,7 @@ HEREDOC
                 ;;
             esac
           else
-            p666_printf_error "Sub-COMMAND without -e ENVAR file."
-            p666_show_usage
+            p666_show_usage "Sub-COMMAND without -e ENVAR file and ${p666_default_envars} not found."
           fi
           case "${1}" in
             source)
@@ -1812,20 +1849,17 @@ HEREDOC
           esac
           ;;
         *)
-          p666_printf_error "Unknown sub-COMMAND ${1}"
-          p666_show_usage
+          p666_show_usage "Unknown sub-COMMAND ${1}"
           ;;
       esac
     else
-      p666_printf_error "No hosts specified with -h and no sub-COMMAND specified."
-      p666_show_usage
+      p666_show_usage "No hosts specified with -h and no sub-COMMAND specified."
     fi
   fi
   
   if [ "${POSIXCUBE_SOURCED}" = "" ]; then
     if [ "${p666_commands}" = "" ] && [ "${p666_cubes}" = "" ]; then
-      p666_printf_error "No COMMANDs or CUBEs specified."
-      p666_show_usage
+      p666_show_usage "No COMMANDs or CUBEs specified."
     fi
 
     [ ${p666_debug} -eq 1 ] && p666_show_version
@@ -1845,7 +1879,7 @@ HEREDOC
       fi
       [ "${p666_host_output}" != "" ] && p666_printf "[${p666_host_output_color}${p666_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
       if [ ${p666_host_output_result} -ne 0 ]; then
-        exit ${p666_host_output_result}
+        p666_exit ${p666_host_output_result}
       fi
     }
 
@@ -1905,7 +1939,7 @@ HEREDOC
       p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.enc$')
       
       if [ ${p666_envar_script_enc_matches} -ne 0 ]; then
-        if cube_check_command_exists gpg ; then
+        if cube_command_exists gpg ; then
           [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script}"
           
           p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
@@ -1922,7 +1956,7 @@ HEREDOC
           p666_envar_script_remove=1
         else
           p666_printf_error "gpg program not found on the PATH"
-          exit 1
+          p666_exit 1
         fi
       fi
       
@@ -1961,7 +1995,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
           fi
         else
           p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
-          exit 1
+          p666_exit 1
         fi
       elif [ -r "${p666_cube}" ]; then
         p666_cube_name=$(basename "${p666_cube}")
@@ -1983,7 +2017,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
 "
       else
         p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
-        exit 1
+        p666_exit 1
       fi
       p666_script_contents="${p666_script_contents}${POSIXCUBE_NEWLINE}cd \${cube_initial_directory}"
     done
@@ -2000,7 +2034,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
         chmod u+x "${p666_cube}.sh"
       else
         p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
-        exit 1
+        p666_exit 1
       fi
     done
     
@@ -2013,7 +2047,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
     
     cat <<HEREDOC > "${p666_script}"
 #!/bin/sh
-POSIXCUBE_REMOTE=1
+POSIXCUBE_APIS_ONLY=1
 . ${p666_remote_script}
 if [ \$? -ne 0 ] ; then
   echo "Could not source ${p666_remote_script} script" 1>&2
@@ -2071,7 +2105,7 @@ HEREDOC
           p666_upload="${p666_upload} ${p666_cube}.sh"
         else
           p666_printf_error "Could not find ${p666_cube}"
-          exit 1
+          p666_exit 1
         fi
       done
     fi

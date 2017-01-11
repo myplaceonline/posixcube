@@ -46,9 +46,7 @@
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
                   show: Decrypt and print ENVAR file.
                   source: Source all ENVAR files. Must be run with
-                          POSIXCUBE_SOURCED=true and often this command execution
-                          is itself sourced (and then POSIXCUBE_SOURCED is reset
-                          to "").
+                          POSIXCUBE_SOURCED (see Public Variables section below).
 
     Description:
 
@@ -67,11 +65,10 @@
       
       Both CUBEs and COMMANDs may execute any of the functions defined in the
       "Public APIs" in the posixcube.sh script. Short descriptions of the functions
-      is in the APIs section below. See the source comments above each function
+      are in the APIs section below. See the source comments above each function
       for details.
       
-    Examples (assuming posixcube.sh directory is on ${PATH}, or you may execute
-              it using an absolute path):
+    Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
 
       posixcube.sh -h socrates uptime
       
@@ -154,9 +151,10 @@
     Cube Development:
 
       Shell scripts don't have scoping, so to reduce the chances of function name
-      conflicts, name functions cube_${cubename}_${function}
+      conflicts, name functions cube_${cubename}_${function} and name variables
+      cubevar_${cubename}_${var}.
 
-    API:
+    Public APIs:
       
       * cube_echo
           Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and
@@ -187,13 +185,13 @@
           Check if $? is non-zero and call cube_throw if so.
           Example: some_command || cube_check_return
 
+      * cube_include
+          Include the ${1} cube
+          Example: cube_include core_cube
+
       * cube_check_numargs
           Call cube_throw if there are less than $1 arguments in $@
           Example: cube_check_numargs 2 "${@}"
-
-      * cube_append_str
-          Echo $1 with $2 appended after a space if $1 was not blank.
-          Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
       * cube_service
           Run the $1 action on the $2 service.
@@ -204,17 +202,21 @@
           to say yes to questions.
           Example: cube_package install python
 
-      * cube_check_command_exists
+      * cube_append_str
+          Echo $1 with $2 appended after a space if $1 was not blank.
+          Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
+
+      * cube_command_exists
           Check if $1 command or function exists in the current context.
-          Example: cube_check_command_exists systemctl
+          Example: cube_command_exists systemctl
 
-      * cube_check_dir_exists
+      * cube_dir_exists
           Check if $1 exists as a directory.
-          Example: cube_check_dir_exists /etc/cron.d/
+          Example: cube_dir_exists /etc/cron.d/
 
-      * cube_check_file_exists
+      * cube_file_exists
           Check if $1 exists as a file with read access.
-          Example: cube_check_file_exists /etc/cron.d/0hourly
+          Example: cube_file_exists /etc/cron.d/0hourly
 
       * cube_operating_system
           Detect operating system and return one of the POSIXCUBE_OS_* values.
@@ -237,9 +239,9 @@
           echo the absolute path the currently executing script.
           Example: script_name=$(cube_current_script_abs_path)
 
-      * cube_get_file_size
+      * cube_file_size
           echo the size of a file $1 in bytes
-          Example: cube_get_file_size some_file
+          Example: cube_file_size some_file
 
       * cube_set_file_contents
           Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
@@ -303,6 +305,10 @@
           Echo the IPv4 address of interface $1
           Example: cube_interface_ipv4_address eth0
 
+      * cube_interface_ipv6_address
+          Echo the IPv6 address of interface $1
+          Example: cube_interface_ipv6_address eth0
+
       * cube_prompt
           Prompt the question $1 followed by " (y/N)" and prompt for an answer.
           A blank string answer is equivalent to No. Return true if yes, false otherwise.
@@ -336,9 +342,16 @@
           Add the user $2 to group $1
           Example: cube_add_group_user nginx nginx
 
-      * cube_include
-          Include the ${1} cube
-          Example: cube_include core_cube
+    Public Variables:
+
+      * POSIXCUBE_APIS_ONLY
+          Set this to any value to only source the public APIs in posixcube.sh.
+          Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo Test
+      
+      * POSIXCUBE_SOURCED
+          Set this to any value to only run a sub-COMMAND, most commonly `source`,
+          to source in all ENVAR files, but skip actual execution of posixcube.
+          Example: POSIXCUBE_SOURCED=true . posixcube.sh source; POSIXCUBE_SOURCED=
 
     Source: https://github.com/myplaceonline/posixcube
 

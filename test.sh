@@ -7,7 +7,7 @@ cube_package install atop
 cube_service enable atop
 cube_service start atop
 
-if cube_check_command_exists dnf ; then
+if cube_command_exists dnf ; then
   dnf check-update || cube_check_return
 fi
 
