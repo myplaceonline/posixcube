@@ -32,7 +32,7 @@
 #   7. https://wiki.ubuntu.com/DashAsBinSh
 
 p666_show_usage() {
-  if [ "${@}" != "" ]; then
+  if [ $# -ne 0 ]; then
     p666_printf_error "${@}"
   fi
 
@@ -392,7 +392,7 @@ Public Variables:
 Source: https://github.com/myplaceonline/posixcube
 HEREDOC
 
-  if [ "${@}" != "" ]; then
+  if [ $# -ne 0 ]; then
     p666_printf_error "${@}"
   fi
 
