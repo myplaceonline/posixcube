@@ -1290,13 +1290,13 @@ cube_interface_ipv4_address() {
 }
 
 # Description:
-#   Echo the IPv4 address of interface $1
+#   Echo the IPv6 address of interface $1
 # Example call:
-#   cube_interface_ipv4_address eth0
+#   cube_interface_ipv6_address eth0
 # Arguments:
 #   Required:
 #     $1: Interface name
-cube_interface_ipv4_address() {
+cube_interface_ipv6_address() {
   cube_check_numargs 1 "${@}"
   ip -6 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
