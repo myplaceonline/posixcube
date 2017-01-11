@@ -346,12 +346,12 @@
 
       * POSIXCUBE_APIS_ONLY
           Set this to any value to only source the public APIs in posixcube.sh.
-          Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo Test
+          Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo $(cube_random_number 10)
       
       * POSIXCUBE_SOURCED
           Set this to any value to only run a sub-COMMAND, most commonly `source`,
           to source in all ENVAR files, but skip actual execution of posixcube.
-          Example: POSIXCUBE_SOURCED=true . posixcube.sh source; POSIXCUBE_SOURCED=
+          Example: POSIXCUBE_SOURCED=true . posixcube.sh source; POSIXCUBE_SOURCED= ; cube_echo Test
 
     Source: https://github.com/myplaceonline/posixcube
 
