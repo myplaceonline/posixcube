@@ -1,48 +1,18 @@
 #!/bin/sh
 # posixcube.sh
-#   posixcube.sh is a POSIX compliant shell script server automation framework.
-#   Use consistent APIs for common tasks and package functionality and file
-#   templates in cubes (like recipes/playbooks from other frameworks).
-#
-# Authors:
-#   Kevin Grigorenko (kevin@myplaceonline.com)
-#
-# Version History:
-#   0.1
-#     * Version 0.1
-#
-# Development guidelines:
-#   1. See references [1, 2, 7].
-#   2. Indent with two spaces.
-#   3. Use lower-case variables unless an envar may be used by other scripts [4].
-#      All scripts are `source`d together, so exporting is usually unnecessary.
-#   4. Try to keep lines less than 120 characters.
-#   5. Use [ for tests instead of [[ and use = instead of ==.
-#   6. Use a separate [ invocation for each single test, combine them with && and ||.
-#   7. Don't use `set -e`. Handle failures consciously (see Philosophy section).
-#
-# References:
-#   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
-#   2. https://www.gnu.org/software/autoconf/manual/autoconf.html#Portable-Shell
-#   3. printf: http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap05.html
-#   4. "The name space of environment variable names containing lowercase letters is reserved for applications."
-#      http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
-#   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
-#   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
-#   7. https://wiki.ubuntu.com/DashAsBinSh
+#   A POSIX compliant, shell script-based server automation framework.
+
+POSIXCUBE_VERSION=0.1.0
 
 p666_show_usage() {
-  if [ $# -ne 0 ]; then
+  if [ ${#} -ne 0 ]; then
     p666_printf_error "${@}"
   fi
 
-  # When updating usage, also update README.md.
   cat <<'HEREDOC'
 usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
 
-  posixcube.sh is a POSIX compliant shell script server automation framework.
-  Use consistent APIs for common tasks and package functionality and file
-  templates in cubes (like recipes/playbooks from other frameworks).
+  A POSIX compliant, shell script-based server automation framework.
 
   -?        Help.
   -h HOST   Target host. Option may be specified multiple times. If a host has
@@ -405,7 +375,6 @@ HEREDOC
 # Public APIs #
 ###############
 
-POSIXCUBE_VERSION=0.1
 POSIXCUBE_DEBUG=0
 POSIXCUBE_COLOR_RESET="\x1B[0m"
 POSIXCUBE_COLOR_RED="\x1B[31m"
@@ -2167,3 +2136,30 @@ HEREDOC
     p666_exit 0
   fi
 fi
+
+# Authors:
+#   Kevin Grigorenko (kevin@myplaceonline.com)
+#
+# Version History (using semantic versioning: http://semver.org/):
+#   0.1.0
+#     * First version
+#
+# Development guidelines:
+#   1. See references [1, 2, 7].
+#   2. Indent with two spaces.
+#   3. Use lower-case variables unless an envar may be used by other scripts [4].
+#      All scripts are `source`d together, so exporting is usually unnecessary.
+#   4. Try to keep lines less than 120 characters.
+#   5. Use [ for tests instead of [[ and use = instead of ==.
+#   6. Use a separate [ invocation for each single test, combine them with && and ||.
+#   7. Don't use `set -e`. Handle failures consciously (see Philosophy section).
+#
+# References:
+#   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+#   2. https://www.gnu.org/software/autoconf/manual/autoconf.html#Portable-Shell
+#   3. printf: http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap05.html
+#   4. "The name space of environment variable names containing lowercase letters is reserved for applications."
+#      http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
+#   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
+#   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
+#   7. https://wiki.ubuntu.com/DashAsBinSh
