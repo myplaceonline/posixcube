@@ -32,9 +32,9 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -w PWDF   File that contains the password for decrypting .enc ENVAR files.
             Defaults to ~/.posixcube.pwd
   -r ROLE   Role name. Option may be specified multiple times.
-  -o P=V    Set the specified parameter P with the value V. Do not put double
-            quotes around V. If V contains *, try to find matching hosts per
-            the -h algorithm. Option may be specified multiple times.
+  -O P=V    Set the specified variable P with the value V. Option may be
+            specified multiple times. Do not put double quotes around V. If
+            V contains *, replace with matching hosts per the -h algorithm.
   -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
             includes this CUBE using cube_include.
   -v        Show version information.
@@ -47,6 +47,8 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
   -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
+  -o        SSH `-o` options. Option may be specified multiple times. Defaults
+            to `-o ConnectTimeout=5`.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -142,8 +144,8 @@ Philosophy:
 
 Frequently Asked Questions:
 
-  * Why is there a long delay between "Preparing hosts" and the first remote
-    execution?
+  * Why is there a long delay between "Transferring files to hosts" and the
+    first remote execution?
   
     You can see details of what's happening with the `-d` flag. By default,
     the script first loops through every host and ensures that ~/posixcubes/
@@ -1471,6 +1473,8 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_parallel=0
   p666_async_cubes=0
   p666_default_envars="envars*sh envars*sh.enc"
+  p666_ssh_o_options_default="ConnectTimeout=5"
+  p666_ssh_o_options="${p666_ssh_o_options_default}"
   
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1608,7 +1612,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:p:w:r:o:z:i:" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:p:w:r:O:z:i:o:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1672,7 +1676,7 @@ HEREDOC
       r)
         p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
         ;;
-      o)
+      O)
         # Break up into name and value
         p666_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
         p666_option_value=$(echo "${OPTARG}" | sed "s/^${p666_option_name}=//")
@@ -1705,21 +1709,27 @@ HEREDOC
           exit 1
         fi
         ;;
+      o)
+        if [ "${p666_ssh_o_options}" = "${p666_ssh_o_options_default}" ]; then
+          p666_ssh_o_options=""
+        fi
+        p666_ssh_o_options=$(cube_append_str "${p666_ssh_o_options}" "${OPTARG}")
+        ;;
       esac
     done
   }
 
   p666_process_options "${@}"
   
+  shift $((${OPTIND}-1))
+
+  [ "$1" = "--" ] && shift
+  
   # If no password specified, check for the ~/.posixcube.pwd file
   if [ "${p666_envar_scripts_password}" = "" ] && [ -r ~/.posixcube.pwd ]; then
     p666_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
   fi
 
-  shift $((${OPTIND}-1))
-
-  [ "$1" = "--" ] && shift
-  
   if [ "${p666_envar_scripts}" = "" ]; then
     p666_envar_scripts="$(ls -1 ${p666_default_envars} 2>/dev/null | paste -sd ' ' -)"
   fi
@@ -1727,6 +1737,12 @@ HEREDOC
   if [ "${p666_envar_scripts}" != "" ]; then
     [ ${p666_debug} -eq 1 ] && p666_printf "Using ENVAR files: ${p666_envar_scripts}\n"
   fi
+  
+  # Convert ssh -o options to final form
+  p666_ssh_o_options_exec=""
+  for p666_ssh_o_option in "${p666_ssh_o_options}"; do
+    p666_ssh_o_options_exec=$(cube_append_str "${p666_ssh_o_options_exec}" "-o ${p666_ssh_o_option}")
+  done
   
   p666_commands="${@}"
 
@@ -1857,10 +1873,10 @@ HEREDOC
       [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh -o ConnectTimeout=10 ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        ssh ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh -o ConnectTimeout=10 ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        ssh ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}\n"
@@ -2141,6 +2157,9 @@ fi
 #   Kevin Grigorenko (kevin@myplaceonline.com)
 #
 # Version History (using semantic versioning: http://semver.org/):
+#   0.2.0
+#     * Breaking change: Option -o changed to -O.
+#     * Add -o option which is passed to ssh.
 #   0.1.0
 #     * First version
 #

@@ -24,9 +24,9 @@
       -w PWDF   File that contains the password for decrypting .enc ENVAR files.
                 Defaults to ~/.posixcube.pwd
       -r ROLE   Role name. Option may be specified multiple times.
-      -o P=V    Set the specified parameter P with the value V. Do not put double
-                quotes around V. If V contains *, try to find matching hosts per
-                the -h algorithm. Option may be specified multiple times.
+      -O P=V    Set the specified variable P with the value V. Option may be
+                specified multiple times. Do not put double quotes around V. If
+                V contains *, replace with matching hosts per the -h algorithm.
       -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
                 includes this CUBE using cube_include.
       -v        Show version information.
@@ -39,6 +39,8 @@
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
       -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
+      -o        SSH `-o` options. Option may be specified multiple times. Defaults
+                to `-o ConnectTimeout=5`.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -134,8 +136,8 @@
 
     Frequently Asked Questions:
 
-      * Why is there a long delay between "Preparing hosts" and the first remote
-        execution?
+      * Why is there a long delay between "Transferring files to hosts" and the
+        first remote execution?
       
         You can see details of what's happening with the `-d` flag. By default,
         the script first loops through every host and ensures that ~/posixcubes/
