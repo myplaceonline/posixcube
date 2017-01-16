@@ -15,7 +15,8 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   A POSIX compliant, shell script-based server automation framework.
 
   -?        Help.
-  -h HOST   Target host. Option may be specified multiple times. If a host has
+  -h HOST   Target host. Option may be specified multiple times. The HOST may
+            be preceded with USER@ to specify the remote user. If a host has
             a wildcard ('*'), then HOST is interpeted as a regular expression,
             with '*' replaced with '.*' and any matching hosts in the following
             files are added to the HOST list: /etc/ssh_config,
@@ -23,7 +24,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
   -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
             are also specified, cubes are run first.
-  -u USER   SSH user. Defaults to ${USER}.
+  -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
   -e ENVAR  Shell script with environment variable assignments which is
             uploaded and sourced on each HOST. Option may be specified
             multiple times. Files ending with .enc will be decrypted
@@ -100,7 +101,7 @@ Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
     allows for easily packaging other scripts and resources needed by
     `test.sh`.
   
-  posixcube.sh -u root -h socrates -h seneca uptime
+  posixcube.sh -h root@socrates -h seneca uptime
   
     Run the `uptime` command on hosts `socrates` and `seneca`
     as the user `root`.
@@ -123,6 +124,13 @@ Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
   
     Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
 
+  posixcube.sh -i ~/.ssh/plato -o LogLevel=VERBOSE -o ConnectTimeout=30 \
+               -h plato@socrates uptime
+  
+    Run the `uptime` command on host `socrates` as the remote user `plato`
+    using the SSH identity file ~/.ssh/plato and specifying the SSH options
+    LogLevel=VERBOSE and ConnectTimeout=30
+  
 Philosophy:
 
   Fail hard and fast. In principle, a well written script would check ${?}
@@ -356,8 +364,18 @@ Public APIs:
       Example: cube_add_group_user nginx nginx
   
   * cube_string_contains
-      Return true if ${1} contains ${2}; otherwise, false.
+      Return true if $1 contains $2; otherwise, false.
       Example: cube_string_contains "${cubevar_app_str}" "@" && ...
+  
+  * cube_string_substring_before
+      Print to stdout a substring of $1 strictly before the first match of the
+      regular expression $2.
+      Example: cubevar_app_str="$(cube_string_substring_before "${cubevar_app_str}" "@")"
+
+  * cube_string_substring_after
+      Print to stdout a substring of $1 strictly after the first match of the
+      regular expression $2.
+      Example: cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
 
 Public Variables:
 
@@ -1454,7 +1472,7 @@ cube_include() {
   fi
 }
 
-# Return true if ${1} contains ${2}; otherwise, false.
+# Return true if $1 contains $2; otherwise, false.
 #
 # Example:
 #   cube_string_contains "${cubevar_app_str}" "@" && ...
@@ -1466,6 +1484,32 @@ cube_string_contains() {
   cube_check_numargs 2 "${@}"
   printf "%s" "${1}" | grep -lq "${2}"
   return $?
+}
+
+# Print to stdout a substring of $1 strictly before the first match of the regular expression $2.
+#
+# Example:
+#   cubevar_app_str="$(cube_string_substring_before "${cubevar_app_str}" "@")"
+# Arguments:
+#   Required:
+#     $1: String that is checked for the presence of $2
+#     $2: The search string
+cube_string_substring_before() {
+  cube_check_numargs 2 "${@}"
+  printf "%s" "${1}" | sed "s/\\(^.*\\)${2}.*$/\\1/g"
+}
+
+# Print to stdout a substring of $1 strictly after the first match of the regular expression $2.
+#
+# Example:
+#   cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
+# Arguments:
+#   Required:
+#     $1: String that is checked for the presence of $2
+#     $2: The search string
+cube_string_substring_after() {
+  cube_check_numargs 2 "${@}"
+  printf "%s" "${1}" | sed "s/^.*${2}\\(.*\\)$/\\1/g"
 }
 
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
@@ -1516,14 +1560,12 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   }
 
   p666_printf() {
-    p666_printf_str=$1
-    shift
+    p666_printf_str=$1; shift
     printf "[$(date)] ${p666_printf_str}" "${@}"
   }
 
   p666_printf_error() {
-    p666_printf_str=$1
-    shift
+    p666_printf_str=$1; shift
     printf "\n[$(date)] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
   }
   
@@ -1557,7 +1599,7 @@ _posixcube_complete() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   case "${prev}" in
     \-h)
-      p666_host_list=$({ 
+      p666_host_list=$({
         for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
         do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
         done
@@ -1565,17 +1607,23 @@ _posixcube_complete() {
         do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
         done
         sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -v '*')
-      COMPREPLY=( $(compgen -W "${p666_host_list}" -- $cur))
+      if printf "%s" "${cur}" | grep -lq @; then
+        p666_autocomplete_user="$(printf "%s" "${cur}" | sed "s/\\(^.*\\)@.*$/\\1/g")"
+        p666_host_list="$(printf "%s" "${p666_host_list}" | sed "s/^[ \t]*/${p666_autocomplete_user}@/g")"
+      fi
+      COMPREPLY=($(compgen -W "${p666_host_list}" -- $cur))
       ;;
     \-z)
       p666_complete_specs="$(sed 's/=.*//g' cubespecs.ini)"
-      COMPREPLY=( $(compgen -W "${p666_complete_specs}" -- $cur))
+      COMPREPLY=($(compgen -W "${p666_complete_specs}" -- $cur))
       ;;
     *)
       ;;
   esac
   return 0
 }
+# -o default is needed so that after a host autocomplete, a cube can be auto-completed,
+# although the side effect is that not matching on a non-blank -h will start to match files/dirs
 complete -o default -F _posixcube_complete posixcube.sh
 HEREDOC
 
@@ -1890,57 +1938,94 @@ HEREDOC
     [ ${p666_debug} -eq 1 ] && p666_show_version
     
     p666_handle_remote_response() {
-      p666_handle_remote_response_context="${1}"
+      p666_handle_remote_response_result=${1}; shift
+      p666_handle_remote_response_host="${1}"; shift
+      p666_handle_remote_response_context="${1}"; shift
+      
       if [ "${p666_handle_remote_response_context}" = "" ]; then
         p666_handle_remote_response_context="Last command"
       fi
+
+      if cube_string_contains "${p666_handle_remote_response_host}" "@"; then
+        p666_handle_remote_response_host="$(cube_string_substring_after "${p666_handle_remote_response_host}" "@")"
+      fi
+
       p666_host_output_color=${POSIXCUBE_COLOR_GREEN}
       p666_host_output=""
-      if [ ${p666_host_output_result} -ne 0 ]; then
+      if [ ${p666_handle_remote_response_result} -ne 0 ]; then
         p666_host_output_color=${POSIXCUBE_COLOR_RED}
-        p666_host_output="${p666_handle_remote_response_context} failed with return code ${p666_host_output_result}"
+        p666_host_output="${p666_handle_remote_response_context} failed with return code ${p666_handle_remote_response_result}"
       else
         [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded."
       fi
-      [ "${p666_host_output}" != "" ] && p666_printf "[${p666_host_output_color}${p666_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
-      if [ ${p666_host_output_result} -ne 0 ]; then
-        p666_exit ${p666_host_output_result}
+      
+      if [ "${p666_host_output}" != "" ]; then
+        if [ "${p666_handle_remote_response_host}" != "" ]; then
+          p666_printf "[${p666_host_output_color}${p666_handle_remote_response_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
+        else
+          if [ "${p666_host_output_color}" = "${POSIXCUBE_COLOR_RED}" ]; then
+            p666_printf "[${p666_host_output_color}Error${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
+          else
+            p666_printf "%s\n" "${p666_host_output}"
+          fi
+        fi
+      fi
+      
+      if [ ${p666_handle_remote_response_result} -ne 0 ]; then
+        p666_exit ${p666_handle_remote_response_result}
       fi
     }
 
     p666_remote_ssh() {
-      p666_remote_ssh_commands="$1"
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+      p666_remote_ssh_host="${1}"; shift
+      p666_remote_ssh_user="${1}"; shift
+      
+      if cube_string_contains "${p666_remote_ssh_host}" "@"; then
+        p666_remote_ssh_user="$(cube_string_substring_before "${p666_remote_ssh_host}" "@")"
+        p666_remote_ssh_host="$(cube_string_substring_after "${p666_remote_ssh_host}" "@")"
+      fi
+      
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${@} ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} "${@}" 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} "${@}" 2>&1
         p666_host_output_result=$?
         
-        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}\n"
+        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_remote_ssh_host}\n"
         
-        p666_handle_remote_response "Remote commands through SSH"
-        return ${p666_host_output_result}
+        p666_handle_remote_response ${p666_host_output_result} "${p666_remote_ssh_host}" "Remote commands through SSH"
       fi
     }
 
     p666_remote_transfer() {
-      p666_remote_transfer_source="$1"
-      p666_remote_transfer_dest="$2"
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_user}@${p666_host}:${p666_remote_transfer_dest} ...\n"
+      p666_remote_transfer_host="${1}"; shift
+      p666_remote_transfer_user="${1}"; shift
+      p666_remote_transfer_source="${1}"; shift
+      p666_remote_transfer_dest="${1}"; shift
       
-      # Don't use -a so that ownership is picked up from the specified user
+      if cube_string_contains "${p666_remote_transfer_host}" "@"; then
+        p666_remote_transfer_user="$(cube_string_substring_before "${p666_remote_transfer_host}" "@")"
+        p666_remote_transfer_host="$(cube_string_substring_after "${p666_remote_transfer_host}" "@")"
+      fi
+      
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest} ...\n"
+      
+      # Don't use -a on rsync so that ownership is picked up from the specified user
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in background: ${p666_remote_transfer_source} ${p666_user}@${p666_host}:${p666_remote_transfer_dest}\n"
-        rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}" &
+        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+        
+        rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in foreground: ${p666_remote_transfer_source} ${p666_user}@${p666_host}:${p666_remote_transfer_dest}\n"
-        rsync -rlpt ${p666_remote_transfer_source} "${p666_user}@${p666_host}:${p666_remote_transfer_dest}"
-        p666_host_output_result=$?
-        p666_handle_remote_response "rsync"
+        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+        
+        rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+        p666_rsync_result=$?
+        
+        p666_handle_remote_response ${p666_rsync_result} "${p666_remote_transfer_host}" "rsync"
       fi
     }
 
@@ -2143,14 +2228,17 @@ HEREDOC
       p666_wait_pids=""
       for p666_host in ${p666_hosts}; do
         # Debian doesn't have rsync installed by default
-        #p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-        p666_remote_ssh "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && apt-get -y install rsync); exit \${RC};"
+        # p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+        p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && apt-get -y install rsync); exit \${RC};"
       done
+      
       if [ "${p666_wait_pids}" != "" ]; then
         [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on initialization PIDs: ${p666_wait_pids} ...\n"
+        
         wait ${p666_wait_pids}
         p666_host_output_result=$?
-        p666_handle_remote_response "Remote commands through SSH"
+        
+        p666_handle_remote_response ${p666_host_output_result} "" "Remote commands through SSH"
       fi
     fi
     
@@ -2161,17 +2249,19 @@ HEREDOC
     p666_wait_pids=""
     for p666_host in ${p666_hosts}; do
       if [ ${p666_skip_init} -eq 0 ]; then
-        p666_remote_transfer "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
+        p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
       else
-        p666_remote_transfer "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
+        p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
       fi
     done
     
     if [ "${p666_wait_pids}" != "" ]; then
       [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
+      
       wait ${p666_wait_pids}
       p666_host_output_result=$?
-      p666_handle_remote_response "rsync"
+      
+      p666_handle_remote_response ${p666_host_output_result} "" "rsync"
     fi
 
     [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
@@ -2180,19 +2270,25 @@ HEREDOC
     p666_async=${p666_async_cubes}
     
     for p666_host in ${p666_hosts}; do
-      [ ${p666_quiet} -eq 0 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host} ...\n"
-      p666_remote_ssh ". ${p666_cubedir}/${p666_script}"
-      p666_remote_ssh_result=$?
-      if [ ${p666_async} -eq 0 ]; then
-        [ ${p666_skip_host_errors} -eq 0 ] && [ ${p666_remote_ssh_result} -ne 0 ] && p666_exit ${p666_remote_ssh_result}
+      if [ ${p666_quiet} -eq 0 ]; then
+        if cube_string_contains "${p666_host}" "@"; then
+          p666_host_final="$(cube_string_substring_after "${p666_host}" "@")"
+        else
+          p666_host_final="${p666_host}"
+        fi
+        p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host_final}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host_final} ...\n"
       fi
+      
+      p666_remote_ssh "${p666_host}" "${p666_user}" ". ${p666_cubedir}/${p666_script}"
     done
 
     if [ "${p666_wait_pids}" != "" ]; then
       [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on cube execution PIDs: ${p666_wait_pids} ...\n"
+      
       wait ${p666_wait_pids}
       p666_host_output_result=$?
-      p666_handle_remote_response "Cube execution"
+      
+      p666_handle_remote_response ${p666_host_output_result} "" "Cube execution"
     fi
 
     p666_exit 0
@@ -2204,8 +2300,11 @@ fi
 #
 # Version History (using semantic versioning: http://semver.org/):
 #   0.2.0
+#     * Support user name in HOST specifier in addition to the -u option (Issue #8).
+#     * Support bash autocompletion with user in the hostname
+#     * Add new APIs cube_string_substring_before and cube_string_substring_after
 #     * Breaking change: Option -p changed to -P.
-#     * Add -p option which is passed to ssh.
+#     * Add -p option which is passed to ssh (Issue #11).
 #     * Breaking change: Option -i changed to -U.
 #     * Add -i and -F options which are passed to ssh.
 #     * Breaking change: Option -o changed to -O.

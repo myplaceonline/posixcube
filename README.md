@@ -7,7 +7,8 @@
       A POSIX compliant, shell script-based server automation framework.
 
       -?        Help.
-      -h HOST   Target host. Option may be specified multiple times. If a host has
+      -h HOST   Target host. Option may be specified multiple times. The HOST may
+                be preceded with USER@ to specify the remote user. If a host has
                 a wildcard ('*'), then HOST is interpeted as a regular expression,
                 with '*' replaced with '.*' and any matching hosts in the following
                 files are added to the HOST list: /etc/ssh_config,
@@ -15,7 +16,7 @@
                 /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
       -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
                 are also specified, cubes are run first.
-      -u USER   SSH user. Defaults to ${USER}.
+      -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
       -e ENVAR  Shell script with environment variable assignments which is
                 uploaded and sourced on each HOST. Option may be specified
                 multiple times. Files ending with .enc will be decrypted
@@ -92,7 +93,7 @@
         allows for easily packaging other scripts and resources needed by
         `test.sh`.
       
-      posixcube.sh -u root -h socrates -h seneca uptime
+      posixcube.sh -h root@socrates -h seneca uptime
       
         Run the `uptime` command on hosts `socrates` and `seneca`
         as the user `root`.
@@ -115,6 +116,13 @@
       
         Decrypt, edit, and re-encrypt the contents of production.sh with $EDITOR
 
+      posixcube.sh -i ~/.ssh/plato -o LogLevel=VERBOSE -o ConnectTimeout=30 \
+                  -h plato@socrates uptime
+      
+        Run the `uptime` command on host `socrates` as the remote user `plato`
+        using the SSH identity file ~/.ssh/plato and specifying the SSH options
+        LogLevel=VERBOSE and ConnectTimeout=30
+      
     Philosophy:
 
       Fail hard and fast. In principle, a well written script would check ${?}
@@ -348,8 +356,18 @@
           Example: cube_add_group_user nginx nginx
       
       * cube_string_contains
-          Return true if ${1} contains ${2}; otherwise, false.
+          Return true if $1 contains $2; otherwise, false.
           Example: cube_string_contains "${cubevar_app_str}" "@" && ...
+      
+      * cube_string_substring_before
+          Print to stdout a substring of $1 strictly before the first match of the
+          regular expression $2.
+          Example: cubevar_app_str="$(cube_string_substring_before "${cubevar_app_str}" "@")"
+
+      * cube_string_substring_after
+          Print to stdout a substring of $1 strictly after the first match of the
+          regular expression $2.
+          Example: cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
 
     Public Variables:
 
