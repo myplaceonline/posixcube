@@ -1341,6 +1341,7 @@ cube_user_exists() {
 #     $1: User name
 #   Optional:
 #     $2: Shell
+#     $3: Password
 cube_create_user() {
   cube_check_numargs 1 "${@}"
   
@@ -1348,6 +1349,10 @@ cube_create_user() {
   
   if [ "${2}" != "" ]; then
     usermod -s "${2}" "${1}" || cube_check_return
+  fi
+
+  if [ "${3}" != "" ]; then
+    echo "${1}:${3}" | chpasswd || cube_check_return
   fi
 }
 
