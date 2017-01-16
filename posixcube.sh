@@ -2381,8 +2381,9 @@ HEREDOC
   fi
 fi
 
-# Authors:
-#   Kevin Grigorenko (kevin@myplaceonline.com)
+# Contributors:
+#   * Kevin Grigorenko (kevin@myplaceonline.com)
+#   * laoshaw21
 #
 # Version History (using semantic versioning: http://semver.org/):
 #   0.2.0
