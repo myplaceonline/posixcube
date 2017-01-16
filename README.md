@@ -27,7 +27,7 @@
       -O P=V    Set the specified variable P with the value V. Option may be
                 specified multiple times. Do not put double quotes around V. If
                 V contains *, replace with matching hosts per the -h algorithm.
-      -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
+      -U CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
                 includes this CUBE using cube_include.
       -v        Show version information.
       -d        Print debugging information.
@@ -39,8 +39,10 @@
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
       -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
-      -o        SSH `-o` options. Option may be specified multiple times. Defaults
+      -i FILE   SSH `-i` option for identity file.
+      -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
                 to `-o ConnectTimeout=5`.
+      -F FILE   SSH `-F` option.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.

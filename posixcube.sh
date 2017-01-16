@@ -35,7 +35,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -O P=V    Set the specified variable P with the value V. Option may be
             specified multiple times. Do not put double quotes around V. If
             V contains *, replace with matching hosts per the -h algorithm.
-  -i CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
+  -U CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
             includes this CUBE using cube_include.
   -v        Show version information.
   -d        Print debugging information.
@@ -47,8 +47,10 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
   -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
-  -o        SSH `-o` options. Option may be specified multiple times. Defaults
+  -i FILE   SSH `-i` option for identity file.
+  -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
             to `-o ConnectTimeout=5`.
+  -F FILE   SSH `-F` option.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -1436,7 +1438,7 @@ cube_include() {
     cube_echo "Including ${cube_include_name} cube..."
     . "../${cube_include_name}.sh"
   else
-    cube_throw "Cube ${cube_include_name} not found (did you upload it with -i ${cube_include_name} ?)."
+    cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
   fi
 }
 
@@ -1475,6 +1477,8 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_default_envars="envars*sh envars*sh.enc"
   p666_ssh_o_options_default="ConnectTimeout=5"
   p666_ssh_o_options="${p666_ssh_o_options_default}"
+  p666_ssh_i_option=""
+  p666_ssh_F_option=""
   
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1612,7 +1616,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:p:w:r:O:z:i:o:" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:p:w:r:O:z:U:o:i:F:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1654,7 +1658,7 @@ HEREDOC
       c)
         p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
         ;;
-      i)
+      U)
         p666_include_cubes=$(cube_append_str "${p666_include_cubes}" "${OPTARG}")
         ;;
       e)
@@ -1714,6 +1718,12 @@ HEREDOC
           p666_ssh_o_options=""
         fi
         p666_ssh_o_options=$(cube_append_str "${p666_ssh_o_options}" "${OPTARG}")
+        ;;
+      i)
+        p666_ssh_i_option="-i ${OPTARG}"
+        ;;
+      F)
+        p666_ssh_F_option="-F ${OPTARG}"
         ;;
       esac
     done
@@ -1870,13 +1880,13 @@ HEREDOC
 
     p666_remote_ssh() {
       p666_remote_ssh_commands="$1"
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}\n"
@@ -2158,6 +2168,8 @@ fi
 #
 # Version History (using semantic versioning: http://semver.org/):
 #   0.2.0
+#     * Breaking change: Option -i changed to -U.
+#     * Add -i and -F options which are passed to ssh.
 #     * Breaking change: Option -o changed to -O.
 #     * Add -o option which is passed to ssh.
 #   0.1.0
