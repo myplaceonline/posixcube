@@ -325,11 +325,12 @@ Public APIs:
       Example: cube_ensure_file ~/.ssh/authorized_keys
 
   * cube_pushd
-      Equivalent to `pushd` with $1
+      Add the current directory to a stack of directories and change directory to ${1}
       Example: cube_pushd ~/.ssh/
 
   * cube_popd
-      Equivalent to `popd`
+      Pop the top of the stack of directories from `cube_pushd` and change
+      directory to that directory.
       Example: cube_popd
 
   * cube_has_role
@@ -430,32 +431,32 @@ HEREDOC
 # Public APIs #
 ###############
 
-POSIXCUBE_COLOR_RESET="\x1B[0m"
-POSIXCUBE_COLOR_RED="\x1B[31m"
-POSIXCUBE_COLOR_GREEN="\x1B[32m"
-POSIXCUBE_COLOR_YELLOW="\x1B[33m"
-POSIXCUBE_COLOR_BLUE="\x1B[34m"
-POSIXCUBE_COLOR_PURPLE="\x1B[35m"
-POSIXCUBE_COLOR_CYAN="\x1B[36m"
-POSIXCUBE_COLOR_WHITE="\x1B[37m"
+export POSIXCUBE_COLOR_RESET="\x1B[0m"
+export POSIXCUBE_COLOR_RED="\x1B[31m"
+export POSIXCUBE_COLOR_GREEN="\x1B[32m"
+export POSIXCUBE_COLOR_YELLOW="\x1B[33m"
+export POSIXCUBE_COLOR_BLUE="\x1B[34m"
+export POSIXCUBE_COLOR_PURPLE="\x1B[35m"
+export POSIXCUBE_COLOR_CYAN="\x1B[36m"
+export POSIXCUBE_COLOR_WHITE="\x1B[37m"
 
-POSIXCUBE_NEWLINE="
+export POSIXCUBE_NEWLINE="
 "
-POSIXCUBE_CUBE_NAME=""
-POSIXCUBE_CUBE_NAME_WITH_PREFIX=""
+export POSIXCUBE_CUBE_NAME=""
+export POSIXCUBE_CUBE_NAME_WITH_PREFIX=""
 
-POSIXCUBE_OS_UNKNOWN=-1
-POSIXCUBE_OS_LINUX=1
-POSIXCUBE_OS_MAC_OSX=2
-POSIXCUBE_OS_WINDOWS=3
+export POSIXCUBE_OS_UNKNOWN=-1
+export POSIXCUBE_OS_LINUX=1
+export POSIXCUBE_OS_MAC_OSX=2
+export POSIXCUBE_OS_WINDOWS=3
 
-POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
-POSIXCUBE_OS_FLAVOR_FEDORA=1
-POSIXCUBE_OS_FLAVOR_DEBIAN=2
-POSIXCUBE_OS_FLAVOR_UBUNTU=3
+export POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
+export POSIXCUBE_OS_FLAVOR_FEDORA=1
+export POSIXCUBE_OS_FLAVOR_DEBIAN=2
+export POSIXCUBE_OS_FLAVOR_UBUNTU=3
 
-POSIXCUBE_SHELL_UNKNOWN=-1
-POSIXCUBE_SHELL_BASH=1
+export POSIXCUBE_SHELL_UNKNOWN=-1
+export POSIXCUBE_SHELL_BASH=1
 
 cubevar_api_debug=0
 cubevar_api_superuser=""
@@ -471,8 +472,10 @@ cubevar_api_node_hostname="$(hostname)"
 # Arguments: ${@} passed to echo
 cube_echo() {
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] "
   else
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] "
   fi
   echo "${@}"
@@ -493,8 +496,10 @@ cube_echo() {
 cube_printf() {
   cube_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
   else
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
   fi
 }
@@ -509,8 +514,10 @@ cube_printf() {
 # Arguments: ${@} passed to echo
 cube_error_echo() {
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   else
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   fi
   echo "${@}" 1>&2
@@ -531,8 +538,10 @@ cube_error_echo() {
 cube_error_printf() {
   cube_error_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
   else
+    # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
   fi
 }
@@ -555,6 +564,7 @@ cube_throw() {
   if cube_command_exists caller ; then
     x=0
     while true; do
+      # shellcheck disable=SC2039
       cube_error_caller=$(caller $x)
       cube_error_caller_result=${?}
       if [ ${cube_error_caller_result} -eq 0 ]; then
@@ -565,7 +575,7 @@ cube_throw() {
       else
         break
       fi
-      x=$((${x}+1))
+      x=$((x+1))
     done
   fi
   
@@ -597,11 +607,12 @@ cube_line_number() {
   if cube_command_exists caller ; then
     x=0
     while true; do
+      # shellcheck disable=SC2039
       cube_api_caller_output=$(caller $x)
       cube_api_caller_result=${?}
       if [ ${cube_api_caller_result} -eq 0 ]; then
         cube_api_caller_result_lineno=$(echo "${cube_api_caller_output}" | awk '{ print $1 }')
-        cube_api_caller_result_subroutine=$(echo "${cube_api_caller_output}" | awk '{ print $2 }')
+        #cube_api_caller_result_subroutine=$(echo "${cube_api_caller_output}" | awk '{ print $2 }')
         cube_api_caller_result_sourcefile=$(echo "${cube_api_caller_output}" | awk '{ for(i=3;i<=NF;i++){ printf "%s ", $i }; printf "\n" }' | sed 's/ $//')
         cube_api_caller_result_sourcefile_basename=$(basename "${cube_api_caller_result_sourcefile}")
         if [ "${cube_api_caller_result_sourcefile_basename}" != "posixcube.sh" ]; then
@@ -614,7 +625,7 @@ cube_line_number() {
       else
         break
       fi
-      x=$((${x}+1))
+      x=$((x+1))
     done
   fi
 }
@@ -669,7 +680,7 @@ cube_append_str() {
 #     $1: Command or function name.
 cube_command_exists() {
   cube_check_numargs 1 "${@}"
-  command -v ${1} >/dev/null 2>&1
+  command -v "${1}" >/dev/null 2>&1
 }
 
 # Check if $1 exists as a directory.
@@ -775,7 +786,7 @@ cube_shell() {
 #     $@: Arguments to check
 cube_check_numargs() {
   cube_check_numargs_expected=$1; shift
-  [ ${#} -lt ${cube_check_numargs_expected} ] && cube_throw "Expected ${cube_check_numargs_expected} arguments, received ${#}."
+  [ ${#} -lt "${cube_check_numargs_expected}" ] && cube_throw "Expected ${cube_check_numargs_expected} arguments, received ${#}."
   return 0
 }
 
@@ -791,13 +802,13 @@ cube_service() {
   cube_check_numargs 1 "${@}"
   if cube_command_exists systemctl ; then
     if [ "${1}" = "daemon-reload" ]; then
-      ${cubevar_api_superuser} systemctl $1 || cube_check_return
+      ${cubevar_api_superuser} systemctl "${1}" || cube_check_return
     else
-      ${cubevar_api_superuser} systemctl $1 $2 || cube_check_return
+      ${cubevar_api_superuser} systemctl "${1}" "${2}" || cube_check_return
     fi
   elif cube_command_exists service ; then
     if [ "${1}" != "daemon-reload" ]; then
-      ${cubevar_api_superuser} service $2 $1 || cube_check_return
+      ${cubevar_api_superuser} service "${2}" "${1}" || cube_check_return
     fi
   else
     cube_throw "Could not find service program"
@@ -814,7 +825,7 @@ cube_service() {
         cube_service_verb="${1}ed"
         ;;
     esac
-    cube_echo "$(echo ${cube_service_verb} | cut -c1 | tr [a-z] [A-Z])$(echo ${cube_service_verb} | cut -c2-) $2 service"
+    cube_echo "$(echo "${cube_service_verb}" | cut -c1 | tr '[:lower:]' '[:upper:]')$(echo "${cube_service_verb}" | cut -c2-) $2 service"
   else
     cube_echo "Executed $1"
   fi
@@ -830,7 +841,7 @@ cube_service() {
 cube_service_exists() {
   cube_check_numargs 1 "${@}"
   if cube_command_exists systemctl ; then
-    cube_service_exists_output="$(systemctl status ${1} 2>&1)"
+    cube_service_exists_output="$(systemctl status "${1}" 2>&1)"
     echo "${cube_service_exists_output}" | grep -l loaded >/dev/null 2>&1
     return $?
   else
@@ -850,13 +861,13 @@ cube_package() {
   cube_check_numargs 1 "${@}"
   
   if cube_command_exists dnf ; then
-    cube_echo "Executing dnf -y ${@}"
+    cube_echo "Executing dnf -y ${*}"
     ${cubevar_api_superuser} dnf -y "${@}" || cube_check_return
   elif cube_command_exists yum ; then
-    cube_echo "Executing yum -y ${@}"
+    cube_echo "Executing yum -y ${*}"
     ${cubevar_api_superuser} yum -y "${@}" || cube_check_return
   elif cube_command_exists apt-get ; then
-    cube_echo "Executing apt-get -y ${@}"
+    cube_echo "Executing apt-get -y ${*}"
     # -o Dpkg::Options::="--force-confnew"
     DEBIAN_FRONTEND=noninteractive ${cubevar_api_superuser} apt-get -y "${@}" || cube_check_return
   else
@@ -879,7 +890,7 @@ cube_current_script_name() {
 #   script_abspath=$(cube_current_script_abs_path)
 # Arguments: None
 cube_current_script_abs_path() {
-  cube_current_script_abs_path_dirname=$( cd "$(dirname "$0")" ; pwd -P )
+  cube_current_script_abs_path_dirname="$( cd "$(dirname "$0")" && pwd -P )" || cube_check_return
   echo "${cube_current_script_abs_path_dirname}/$(cube_current_script_name)"
 }
 
@@ -908,7 +919,7 @@ cube_expand_parameters() {
   # http://stackoverflow.com/a/40167919/5657303
   
   cube_expand_parameters_is_bash=0
-  if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
+  if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     # No win from using regex in parameter expansion because we can't use backreferences to make sure we don't
     # unescape
     cube_expand_parameters_is_bash=0
@@ -922,7 +933,8 @@ cube_expand_parameters() {
     
     # Then re-enable un-escaped ${ references
     if [ $cube_expand_parameters_is_bash -eq 1 ]; then
-      cube_expand_parameters_line_escaped=${cube_expand_parameters_line_escaped//$'\4'{/\${}
+      # shellcheck disable=SC2039
+      cube_expand_parameters_line_escaped="${cube_expand_parameters_line_escaped//$'\4'{/\${}"
     else
       cube_expand_parameters_line_escaped=$(printf %s "${cube_expand_parameters_line_escaped}" | sed 's/\([^\x05]\)\x04{/\1${/g' | sed 's/^\x04{/${/g')
     fi
@@ -943,7 +955,8 @@ cube_expand_parameters() {
 cube_read_heredoc() {
   cube_read_heredoc_first=1
   cube_read_heredoc_result=""
-  while IFS='\n' read -r cube_read_heredoc_line; do
+  while IFS='
+' read -r cube_read_heredoc_line; do
     if [ ${cube_read_heredoc_first} -eq 1 ]; then
       cube_read_heredoc_result="${cube_read_heredoc_line}"
       cube_read_heredoc_first=0
@@ -975,13 +988,13 @@ cube_set_file_contents() {
   cube_set_file_contents_input_file_needs_remove=0
   
   if ! cube_file_exists "${cube_set_file_contents_input_file}" ; then
-    cube_throw "Could not find or read input ${cube_set_file_contents_input_file}"
+    cube_throw "Could not find or read input ${cube_set_file_contents_input_file} from $(pwd -P)"
   fi
   
   cube_ensure_directory "$(dirname "${cube_set_file_contents_target_file}")"
   
   cube_set_file_contents_input_file_is_template=$(expr "${cube_set_file_contents_input_file}" : '.*\.template$')
-  if [ ${cube_set_file_contents_input_file_is_template} -ne 0 ]; then
+  if [ "${cube_set_file_contents_input_file_is_template}" -ne 0 ]; then
     
     cube_set_file_contents_input_file_original="${cube_set_file_contents_input_file}"
     cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
@@ -1014,7 +1027,7 @@ cube_set_file_contents() {
       cube_echo "Target file ${cube_set_file_contents_target_file} exists. Target size: ${cube_set_file_contents_target_file_size}, source size: ${cube_set_file_contents_input_file_size}"
     fi
     
-    if [ ${cube_set_file_contents_target_file_size} -eq ${cube_set_file_contents_input_file_size} ]; then
+    if [ "${cube_set_file_contents_target_file_size}" -eq "${cube_set_file_contents_input_file_size}" ]; then
 
       # Sizes are equal, so do a quick cksum
       cube_set_file_contents_target_file_cksum=$(cksum "${cube_set_file_contents_target_file}" | awk '{print $1}')
@@ -1116,7 +1129,7 @@ cube_readlink() {
       cube_readlink_path=$(cd "${cube_readlink_dir}" && cd "$(dirname -- "${cube_readlink_sym}")" && pwd)/$(basename -- "${cube_readlink_sym}")
     done
     
-    echo ${cube_readlink_path}
+    echo "${cube_readlink_path}"
   #fi
 }
 
@@ -1142,7 +1155,7 @@ cube_total_memory() {
       cube_total_memory_divisor=1
       ;;
   esac
-  echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/${cube_total_memory_divisor}))
+  echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/cube_total_memory_divisor))
 }
 
 # Ensure directory $1 exists. Return true if the directory is created; otherwise, false.
@@ -1166,13 +1179,13 @@ cube_ensure_directory() {
     cube_echo "Created directory ${1}"
   fi
   if [ "${2}" != "" ]; then
-    chmod ${2} "${1}" || cube_check_return
+    chmod "${2}" "${1}" || cube_check_return
   fi
   if [ "${3}" != "" ]; then
-    chown ${3} "${1}" || cube_check_return
+    chown "${3}" "${1}" || cube_check_return
   fi
   if [ "${4}" != "" ]; then
-    chgrp ${4} "${1}" || cube_check_return
+    chgrp "${4}" "${1}" || cube_check_return
   fi
   
   return ${cube_ensure_directory_result}
@@ -1194,6 +1207,7 @@ cube_ensure_file() {
   cube_ensure_file_result=1
   
   if ! cube_file_exists "${1}"; then
+    # shellcheck disable=SC2086
     cube_ensure_directory "$(dirname "${1}")" $2 $3 $4
   
     touch "${1}" || cube_check_return
@@ -1201,19 +1215,19 @@ cube_ensure_file() {
     cube_echo "Created file ${1}"
   fi
   if [ "${2}" != "" ]; then
-    chmod ${2} "${1}" || cube_check_return
+    chmod "${2}" "${1}" || cube_check_return
   fi
   if [ "${3}" != "" ]; then
-    chown ${3} "${1}" || cube_check_return
+    chown "${3}" "${1}" || cube_check_return
   fi
   if [ "${4}" != "" ]; then
-    chgrp ${4} "${1}" || cube_check_return
+    chgrp "${4}" "${1}" || cube_check_return
   fi
 
   return ${cube_ensure_file_result}
 }
 
-# Equivalent to `pushd` with $1
+# Add the current directory to a stack of directories and change directory to ${1}
 #
 # Example:
 #   cube_pushd ~/.ssh/
@@ -1224,22 +1238,25 @@ cube_pushd() {
   cube_check_numargs 1 "${@}"
   
   if cube_command_exists pushd ; then
-    pushd "${@}" || cube_check_return
+    # shellcheck disable=SC2039
+    pushd "${1}" || cube_check_return
   else
-    cube_throw "TODO: Not implemented"
+    cube_throw "Not implemented"
   fi
 }
 
-# Equivalent to `popd`
+# Pop the top of the stack of directories from `cube_pushd` and change
+# directory to that directory.
 #
 # Example:
 #   cube_popd
 # Arguments: None
 cube_popd() {
   if cube_command_exists popd ; then
-    popd "${@}" || cube_check_return
+    # shellcheck disable=SC2039
+    popd || cube_check_return
   else
-    cube_throw "TODO: Not implemented"
+    cube_throw "Not implemented"
   fi
 }
 
@@ -1310,7 +1327,7 @@ cube_stdin_contains() {
 #     $1: Interface name
 cube_interface_ipv4_address() {
   cube_check_numargs 1 "${@}"
-  ip -4 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
+  ip -4 -o address show dev "${1}" | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
 
 # Echo the IPv6 address of interface $1
@@ -1322,7 +1339,7 @@ cube_interface_ipv4_address() {
 #     $1: Interface name
 cube_interface_ipv6_address() {
   cube_check_numargs 1 "${@}"
-  ip -6 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
+  ip -6 -o address show dev "${1}" | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
 
 # Prompt the question $1 followed by " (y/N)" and prompt for an answer.
@@ -1336,8 +1353,8 @@ cube_interface_ipv6_address() {
 cube_prompt() {
   cube_check_numargs 1 "${@}"
   while true; do
-    printf "${1} (y/N)? "
-    read cube_prompt_response || cube_check_return
+    printf "%s (y/N)? " "${1}"
+    read -r cube_prompt_response || cube_check_return
     case "${cube_prompt_response}" in
       [Yy]*)
         return 0
@@ -1483,15 +1500,18 @@ cube_include() {
     cube_include_name_base=$(basename "${cube_include_name}" .sh)
     if [ -r "../${cube_include_name}/${cube_include_name_base}.sh" ]; then
       cube_echo "Including ${cube_include_name} cube..."
+      # shellcheck disable=SC1090
       . "../${cube_include_name}/${cube_include_name_base}.sh"
     else
       cube_throw "Cannot read ${cube_include_name}/${cube_include_name_base}.sh"
     fi
   elif [ -r "../${cube_include_name}" ]; then
     cube_echo "Including ${cube_include_name} cube..."
+    # shellcheck disable=SC1090
     . "../${cube_include_name}"
   elif [ -r "${cube_include_name}.sh" ]; then
     cube_echo "Including ${cube_include_name} cube..."
+    # shellcheck disable=SC1090
     . "../${cube_include_name}.sh"
   else
     cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
@@ -1553,7 +1573,9 @@ cube_sudo() {
 }
 
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
+# shellcheck disable=SC2034
 cubevar_api_post_restart=""
+
 cubevar_api_roles=""
 
 ###################
@@ -1577,6 +1599,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_envar_scripts=""
   p666_envar_scripts_password=""
   p666_user="${USER}"
+  # shellcheck disable=SC2088
   p666_cubedir="~/posixcubes/"
   p666_roles=""
   p666_options=""
@@ -1591,7 +1614,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_ssh_p_option=""
   p666_superuser=""
   
-  if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
+  if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
   fi
 
@@ -1601,18 +1624,20 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
 
   p666_printf() {
     p666_printf_str=$1; shift
+    # shellcheck disable=SC2059
     printf "[$(date)] ${p666_printf_str}" "${@}"
   }
 
   p666_printf_error() {
     p666_printf_str=$1; shift
+    # shellcheck disable=SC2059
     printf "\n[$(date)] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
   }
   
   p666_exit() {
     for p666_envar_script in ${p666_envar_scripts}; do
       p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.dec$')
-      if [ ${p666_envar_script_enc_matches} -ne 0 ]; then
+      if [ "${p666_envar_script_enc_matches}" -ne 0 ]; then
         # If multiple posixcube.sh executions run at the same time, then one of them might
         # delete the decryption file, but that's okay
         rm "${p666_envar_script}" 2>/dev/null
@@ -1621,7 +1646,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
 
     [ ${p666_keep_exec} -eq 0 ] && rm -f "${p666_script}" 2>/dev/null
     
-    exit ${1}
+    exit "${1}"
   }
 
   p666_install() {
@@ -1646,7 +1671,7 @@ _posixcube_complete() {
         for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
         do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
         done
-        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -v '*')
+        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -Fv '*')
       if printf "%s" "${cur}" | grep -lq @; then
         p666_autocomplete_user="$(printf "%s" "${cur}" | sed "s/\\(^.*\\)@.*$/\\1/g")"
         p666_host_list="$(printf "%s" "${p666_host_list}" | sed "s/^[ \t]*/${p666_autocomplete_user}@/g")"
@@ -1672,6 +1697,7 @@ HEREDOC
         chmod +x ${p666_autocomplete_file}
         p666_func_result=$?
         if [ ${p666_func_result} -eq 0 ]; then
+          # shellcheck disable=SC1090
           . ${p666_autocomplete_file}
           p666_func_result=$?
           if [ ${p666_func_result} -eq 0 ]; then
@@ -1698,10 +1724,11 @@ HEREDOC
 
   p666_process_hostname() {
     p666_hostname_wildcard=$(expr "${1}" : '.*\*.*')
-    if [ ${p666_hostname_wildcard} -ne 0 ]; then
+    if [ "${p666_hostname_wildcard}" -ne 0 ]; then
     
       # Use or create cache of hosts
       if [ "${p666_all_hosts}" = "" ]; then
+        # shellcheck disable=SC2063
         p666_all_hosts=$({ 
           for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
           do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
@@ -1709,15 +1736,15 @@ HEREDOC
           for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
           do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
           done
-          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -v '*')
+          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -Fv '*')
       fi
       
-      p666_process_hostname_search=$(printf "${1}" | sed 's/\*/\.\*/g')
+      p666_process_hostname_search=$(printf "%s" "${1}" | sed 's/\*/\.\*/g')
       
       p666_process_hostname_list=""
       for p666_all_host in ${p666_all_hosts}; do
-        p666_all_host_match=$(expr ${p666_all_host} : ${p666_process_hostname_search})
-        if [ ${p666_all_host_match} -ne 0 ]; then
+        p666_all_host_match=$(expr "${p666_all_host}" : "${p666_process_hostname_search}")
+        if [ "${p666_all_host_match}" -ne 0 ]; then
           p666_process_hostname_list=$(cube_append_str "${p666_process_hostname_list}" "${p666_all_host}")
         fi
       done
@@ -1790,7 +1817,7 @@ HEREDOC
         p666_envar_scripts_password="${OPTARG}"
         ;;
       w)
-        p666_envar_scripts_password="$(cat ${OPTARG})" || cube_check_return
+        p666_envar_scripts_password="$(cat "${OPTARG}")" || cube_check_return
         ;;
       r)
         p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
@@ -1808,12 +1835,13 @@ HEREDOC
           
           p666_foundspec_names=""
           
-          while read p666_specfile_line; do
+          while read -r p666_specfile_line; do
             p666_specfile_line_name=$(echo "${p666_specfile_line}" | sed 's/=.*//')
             p666_foundspec_names=$(cube_append_str "${p666_foundspec_names}" "${p666_specfile_line_name}")
             if [ "${p666_specfile_line_name}" = "${OPTARG}" ]; then
               p666_foundspec=1
               p666_specfile_line_value=$(echo "${p666_specfile_line}" | sed "s/^${p666_specfile_line_name}=//")
+              # shellcheck disable=SC2086
               p666_process_options ${p666_specfile_line_value}
               break
             fi
@@ -1852,7 +1880,7 @@ HEREDOC
 
   p666_process_options "${@}"
   
-  shift $((${OPTIND}-1))
+  shift $((OPTIND-1))
 
   [ "$1" = "--" ] && shift
   
@@ -1862,6 +1890,8 @@ HEREDOC
   fi
 
   if [ "${p666_envar_scripts}" = "" ]; then
+    # shellcheck disable=SC2012
+    # shellcheck disable=SC2086
     p666_envar_scripts="$(ls -1 ${p666_default_envars} 2>/dev/null | paste -sd ' ' -)"
   fi
 
@@ -1875,7 +1905,7 @@ HEREDOC
     p666_ssh_o_options_exec=$(cube_append_str "${p666_ssh_o_options_exec}" "-o ${p666_ssh_o_option}")
   done
   
-  p666_commands="${@}"
+  p666_commands="${*}"
 
   if [ "${p666_hosts}" = "" ]; then
     # If there are no hosts, check COMMANDs for sub-commands
@@ -1884,8 +1914,8 @@ HEREDOC
         edit|show|source)
           if [ "${p666_envar_scripts}" != "" ]; then
             for p666_envar_script in ${p666_envar_scripts}; do
-              p666_envar_scripts_enc=$(expr ${p666_envar_script} : '.*enc$')
-              if [ ${p666_envar_scripts_enc} -ne 0 ]; then
+              p666_envar_scripts_enc=$(expr "${p666_envar_script}" : '.*enc$')
+              if [ "${p666_envar_scripts_enc}" -ne 0 ]; then
                 if cube_command_exists gpg ; then
                   p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
                   
@@ -1904,6 +1934,7 @@ HEREDOC
                       ;;
                     source)
                       chmod u+x "${p666_envar_script_new}"
+                      # shellcheck disable=SC1090
                       . "$(cube_readlink "${p666_envar_script_new}")"
                       [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
                       ;;
@@ -1931,9 +1962,10 @@ HEREDOC
               else
                 case "${1}" in
                   show)
-                    cat "${p666_envar_script}" | grep -v "^#!/bin/sh$"
+                    grep -v "^#!/bin/sh$" "${p666_envar_script}"
                     ;;
                   source)
+                    # shellcheck disable=SC1090
                     . "$(cube_readlink "${p666_envar_script}")"
                     [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
                     ;;
@@ -1995,7 +2027,7 @@ HEREDOC
 
       p666_host_output_color=${POSIXCUBE_COLOR_GREEN}
       p666_host_output=""
-      if [ ${p666_handle_remote_response_result} -ne 0 ]; then
+      if [ "${p666_handle_remote_response_result}" -ne 0 ]; then
         p666_host_output_color=${POSIXCUBE_COLOR_RED}
         p666_host_output="${p666_handle_remote_response_context} failed with return code ${p666_handle_remote_response_result}"
       else
@@ -2014,8 +2046,8 @@ HEREDOC
         fi
       fi
       
-      if [ ${p666_handle_remote_response_result} -ne 0 ]; then
-        p666_exit ${p666_handle_remote_response_result}
+      if [ "${p666_handle_remote_response_result}" -ne 0 ] && [ ${p666_skip_host_errors} -eq 0 ]; then
+        p666_exit "${p666_handle_remote_response_result}"
       fi
     }
 
@@ -2028,13 +2060,17 @@ HEREDOC
         p666_remote_ssh_host="$(cube_string_substring_after "${p666_remote_ssh_host}" "@")"
       fi
       
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${@} ...\n"
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${*} ...\n"
       
-      if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} "${@}" 2>&1 &
+      if [ ${p666_parallel} -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
+        # shellcheck disable=SC2086
+        # shellcheck disable=SC2029
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} "${@}" 2>&1
+        # shellcheck disable=SC2086
+        # shellcheck disable=SC2029
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_remote_ssh_host}\n"
@@ -2057,14 +2093,18 @@ HEREDOC
       [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest} ...\n"
       
       # Don't use -a on rsync so that ownership is picked up from the specified user
-      if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
+      if [ "${p666_parallel}" -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
         [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
-        
+
+        # Allow globbing of source(s)
+        # shellcheck disable=SC2086
         rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
         [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
         
+        # Allow globbing of source(s)
+        # shellcheck disable=SC2086
         rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
         p666_rsync_result=$?
         
@@ -2089,9 +2129,9 @@ HEREDOC
     
       p666_envar_script_remove=0
     
-      p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.enc$')
+      p666_envar_script_enc_matches=$(expr "${p666_envar_script}" : '.*\.enc$')
       
-      if [ ${p666_envar_script_enc_matches} -ne 0 ]; then
+      if [ "${p666_envar_script_enc_matches}" -ne 0 ]; then
         if cube_command_exists gpg ; then
           [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script}"
           
@@ -2117,13 +2157,15 @@ HEREDOC
       
       chmod u+x "${p666_envar_script}"
       
+      # shellcheck disable=SC2116
       p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/ || cube_check_return
-. ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
+. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
 
       if [ ${p666_envar_script_remove} -eq 1 ]; then
+        # shellcheck disable=SC2116
         p666_script_contents="${p666_script_contents}
-rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
+rm -f $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
       fi
     done
     
@@ -2133,7 +2175,7 @@ rm -f ${p666_cubedir}/$(basename ${p666_envar_script}) || cube_check_return"
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=$(basename "${p666_cube}")
         if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-          chmod u+x ${p666_cube}/*.sh
+          chmod u+x "${p666_cube}"/*.sh
           p666_cube=${p666_cube%/}
           p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
@@ -2179,7 +2221,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
       if [ -d "${p666_cube}" ]; then
         p666_cube_name=$(basename "${p666_cube}")
         if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-          chmod u+x ${p666_cube}/*.sh
+          chmod u+x "${p666_cube}"/*.sh
         fi
       elif [ -r "${p666_cube}" ]; then
         chmod u+x "${p666_cube}"
