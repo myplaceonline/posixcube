@@ -148,9 +148,10 @@
       cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
       cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
       
-      2. We do not use `set -e` because some functions may handle all errors
+      2. We don't use `set -e` because some functions may handle all errors
       internally (with `cube_check_return`) and use a positive return code as a
-      "benign" result (e.g. `cube_set_file_contents`).
+      "benign" result (e.g. `cube_set_file_contents`). We don't use `set -u`
+      because we source in the user's scripts and they may not want this behavior.
       
       3. Recent versions of many distributions encourage running most commands
       as a non-superuser, and then using `sudo` if needed, with some distributions
