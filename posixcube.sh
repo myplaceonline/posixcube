@@ -48,6 +48,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
   -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
+  -S        Run cube_package and cube_service APIs as superuser.
   -i FILE   SSH `-i` option for identity file.
   -p PORT   SSH `-p` option.
   -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
@@ -101,6 +102,12 @@ Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
     allows for easily packaging other scripts and resources needed by
     `test.sh`.
   
+  posixcube.sh -S -h plato@socrates cube_package install atop
+  
+    As the remote user `plato` on the host `socrates`, install the package
+    `atop`. The `-S` option is required to run the commands within
+    cube_package as the superuser (see the Philosophy section, #3).
+  
   posixcube.sh -h root@socrates -h seneca uptime
   
     Run the `uptime` command on hosts `socrates` and `seneca`
@@ -133,7 +140,7 @@ Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
   
 Philosophy:
 
-  Fail hard and fast. In principle, a well written script would check ${?}
+  1. Fail hard and fast. In principle, a well written script would check ${?}
   after each command and either gracefully handle it, or report an error.
   Few people write scripts this well, so we enforce this check (using
   `cube_check_return` within all APIs) and we encourage you to do the same
@@ -149,9 +156,21 @@ Philosophy:
   cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
   cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
   
-  We do not use `set -e` because some functions may handle all errors
+  2. We do not use `set -e` because some functions may handle all errors
   internally (with `cube_check_return`) and use a positive return code as a
   "benign" result (e.g. `cube_set_file_contents`).
+  
+  3. Recent versions of many distributions encourage running most commands
+  as a non-superuser, and then using `sudo` if needed, with some distributions
+  disallowing remote SSH using the `root` account by default. First, the `sudo`
+  command is not standardized (see http://unix.stackexchange.com/a/48553).
+  Moreoever, it is not enough to prefix posixcube APIs with `sudo` because
+  `sudo` doesn't pass along functions (even if they're exported and `sudo` is
+  executed with --preserve-env). `su -c` may be used but it requires
+  password input. For the most common use case of requiring `sudo` for
+  cube_package and cube_service, if `-S` is specified, the commands within
+  those APIs are executed using `sudo`. If you need to run something else as a
+  superuser and you need access to the posixcube APIs, see the `cube_sudo` API.
 
 Frequently Asked Questions:
 
@@ -295,11 +314,11 @@ Public APIs:
       Example: cube_total_memory
 
   * cube_ensure_directory
-      Ensure directory $1 exists
+      Ensure directory $1 exists. Return true if the file is created; otherwise, false.
       Example: cube_ensure_directory ~/.ssh/
 
   * cube_ensure_file
-      Ensure file $1 exists
+      Ensure file $1 exists. Return true if the file is created; otherwise, false.
       Example: cube_ensure_file ~/.ssh/authorized_keys
 
   * cube_pushd
@@ -376,6 +395,10 @@ Public APIs:
       Print to stdout a substring of $1 strictly after the first match of the
       regular expression $2.
       Example: cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
+  
+  * cube_sudo
+      Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
+      Example: cube_sudo cube_ensure_file /etc/app.txt
 
 Public Variables:
 
@@ -404,7 +427,6 @@ HEREDOC
 # Public APIs #
 ###############
 
-POSIXCUBE_DEBUG=0
 POSIXCUBE_COLOR_RESET="\x1B[0m"
 POSIXCUBE_COLOR_RED="\x1B[31m"
 POSIXCUBE_COLOR_GREEN="\x1B[32m"
@@ -432,7 +454,9 @@ POSIXCUBE_OS_FLAVOR_UBUNTU=3
 POSIXCUBE_SHELL_UNKNOWN=-1
 POSIXCUBE_SHELL_BASH=1
 
-POSIXCUBE_NODE_HOSTNAME="$(hostname)"
+cubevar_api_debug=0
+cubevar_api_superuser=""
+cubevar_api_node_hostname="$(hostname)"
 
 # Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
 # a newline.
@@ -444,9 +468,9 @@ POSIXCUBE_NODE_HOSTNAME="$(hostname)"
 # Arguments: ${@} passed to echo
 cube_echo() {
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
-    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}] "
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] "
   else
-    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] "
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] "
   fi
   echo "${@}"
 }
@@ -466,9 +490,9 @@ cube_echo() {
 cube_printf() {
   cube_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
-    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
   else
-    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
+    printf "[$(date)] [${POSIXCUBE_COLOR_GREEN}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}${POSIXCUBE_COLOR_CYAN}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${cube_printf_str}\n" "${@}"
   fi
 }
 
@@ -482,9 +506,9 @@ cube_printf() {
 # Arguments: ${@} passed to echo
 cube_error_echo() {
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
-    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   else
-    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: " 1>&2
   fi
   echo "${@}" 1>&2
 }
@@ -504,9 +528,9 @@ cube_error_echo() {
 cube_error_printf() {
   cube_error_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
-    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
   else
-    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${POSIXCUBE_NODE_HOSTNAME}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+    printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
   fi
 }
 
@@ -764,13 +788,13 @@ cube_service() {
   cube_check_numargs 1 "${@}"
   if cube_command_exists systemctl ; then
     if [ "${1}" = "daemon-reload" ]; then
-      systemctl $1 || cube_check_return
+      ${cubevar_api_superuser} systemctl $1 || cube_check_return
     else
-      systemctl $1 $2 || cube_check_return
+      ${cubevar_api_superuser} systemctl $1 $2 || cube_check_return
     fi
   elif cube_command_exists service ; then
     if [ "${1}" != "daemon-reload" ]; then
-      service $2 $1 || cube_check_return
+      ${cubevar_api_superuser} service $2 $1 || cube_check_return
     fi
   else
     cube_throw "Could not find service program"
@@ -824,14 +848,14 @@ cube_package() {
   
   if cube_command_exists dnf ; then
     cube_echo "Executing dnf -y ${@}"
-    dnf -y "${@}" || cube_check_return
+    ${cubevar_api_superuser} dnf -y "${@}" || cube_check_return
   elif cube_command_exists yum ; then
     cube_echo "Executing yum -y ${@}"
-    yum -y "${@}" || cube_check_return
+    ${cubevar_api_superuser} yum -y "${@}" || cube_check_return
   elif cube_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${@}"
     # -o Dpkg::Options::="--force-confnew"
-    DEBIAN_FRONTEND=noninteractive apt-get -y "${@}" || cube_check_return
+    DEBIAN_FRONTEND=noninteractive ${cubevar_api_superuser} apt-get -y "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
@@ -960,7 +984,7 @@ cube_set_file_contents() {
     cube_set_file_contents_input_file="${cube_set_file_contents_input_file}.tmp"
 
     # Parameter expansion can introduce very large delays with large files, so point that out
-    #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+    #if [ ${cubevar_api_debug} -eq 1 ]; then
       cube_echo "Expanding parameters of ${cube_set_file_contents_input_file_original}"
     #fi
     
@@ -970,7 +994,7 @@ cube_set_file_contents() {
     # http://stackoverflow.com/questions/2914220/bash-templating-how-to-build-configuration-files-from-templates-with-bash
     cube_expand_parameters < "${cube_set_file_contents_input_file_original}" > "${cube_set_file_contents_input_file}" || cube_check_return
     
-    #if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+    #if [ ${cubevar_api_debug} -eq 1 ]; then
       cube_echo "Expansion complete"
     #fi
     
@@ -983,7 +1007,7 @@ cube_set_file_contents() {
     cube_set_file_contents_target_file_size=$(cube_file_size "${cube_set_file_contents_target_file}")
     cube_set_file_contents_input_file_size=$(cube_file_size "${cube_set_file_contents_input_file}")
     
-    if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+    if [ ${cubevar_api_debug} -eq 1 ]; then
       cube_echo "Target file ${cube_set_file_contents_target_file} exists. Target size: ${cube_set_file_contents_target_file_size}, source size: ${cube_set_file_contents_input_file_size}"
     fi
     
@@ -993,7 +1017,7 @@ cube_set_file_contents() {
       cube_set_file_contents_target_file_cksum=$(cksum "${cube_set_file_contents_target_file}" | awk '{print $1}')
       cube_set_file_contents_input_file_cksum=$(cksum "${cube_set_file_contents_input_file}" | awk '{print $1}')
 
-      if [ ${POSIXCUBE_DEBUG} -eq 1 ]; then
+      if [ ${cubevar_api_debug} -eq 1 ]; then
         cube_echo "Target cksum: ${cube_set_file_contents_target_file_cksum}, source cksum: ${cube_set_file_contents_input_file_cksum}"
       fi
       
@@ -1118,7 +1142,7 @@ cube_total_memory() {
   echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/${cube_total_memory_divisor}))
 }
 
-# Ensure directory $1 exists
+# Ensure directory $1 exists. Return true if the directory is created; otherwise, false.
 #
 # Example:
 #   cube_ensure_directory ~/.ssh/
@@ -1151,7 +1175,7 @@ cube_ensure_directory() {
   return ${cube_ensure_directory_result}
 }
 
-# Ensure file $1 exists
+# Ensure file $1 exists. Return true if the file is created; otherwise, false.
 #
 # Example:
 #   cube_ensure_file ~/.ssh/authorized_keys
@@ -1167,7 +1191,6 @@ cube_ensure_file() {
   cube_ensure_file_result=1
   
   if ! cube_file_exists "${1}"; then
-  
     cube_ensure_directory "$(dirname "${1}")" $2 $3 $4
   
     touch "${1}" || cube_check_return
@@ -1512,9 +1535,22 @@ cube_string_substring_after() {
   printf "%s" "${1}" | sed "s/^.*${2}\\(.*\\)$/\\1/g"
 }
 
+# Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
+#
+# Example:
+#   cube_sudo cube_ensure_file /etc/app.txt
+# Arguments:
+#   Required:
+#     $*: Arguments to pass to superuser sub-shell
+cube_sudo() {
+  cube_check_numargs 1 "${@}"
+  cube_sudo_api_script="$(cube_readlink ~/posixcubes/posixcube.sh)"
+  cube_echo "Executing cube_sudo with: $*"
+  sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cube_sudo_api_script} && $*" || cube_check_return
+}
+
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
 cubevar_api_post_restart=""
-
 cubevar_api_roles=""
 
 ###################
@@ -1550,6 +1586,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_ssh_i_option=""
   p666_ssh_F_option=""
   p666_ssh_p_option=""
+  p666_superuser=""
   
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1691,7 +1728,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:S" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1802,6 +1839,9 @@ HEREDOC
         ;;
       p)
         p666_ssh_p_option="-p ${OPTARG}"
+        ;;
+      S)
+        p666_superuser="sudo"
         ;;
       esac
     done
@@ -2164,7 +2204,8 @@ if [ \$? -ne 0 ] ; then
   exit 1
 fi
 
-POSIXCUBE_DEBUG=${p666_debug}
+cubevar_api_debug=${p666_debug}
+cubevar_api_superuser="${p666_superuser}"
 cubevar_api_roles="${p666_roles}"
 ${p666_script_envar_contents}
 ${p666_options}
@@ -2300,6 +2341,8 @@ fi
 #
 # Version History (using semantic versioning: http://semver.org/):
 #   0.2.0
+#     * Add -S option to run cube_service and cube_package APIs as superuser (Issue #12).
+#     * Add cube_sudo API.
 #     * Support user name in HOST specifier in addition to the -u option (Issue #8).
 #     * Support bash autocompletion with user in the hostname
 #     * Add new APIs cube_string_substring_before and cube_string_substring_after

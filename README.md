@@ -40,6 +40,7 @@
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
       -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
+      -S        Run cube_package and cube_service APIs as superuser.
       -i FILE   SSH `-i` option for identity file.
       -p PORT   SSH `-p` option.
       -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
@@ -93,6 +94,12 @@
         allows for easily packaging other scripts and resources needed by
         `test.sh`.
       
+      posixcube.sh -S -h plato@socrates cube_package install atop
+      
+        As the remote user `plato` on the host `socrates`, install the package
+        `atop`. The `-S` option is required to run the commands within
+        cube_package as the superuser (see the Philosophy section, #3).
+      
       posixcube.sh -h root@socrates -h seneca uptime
       
         Run the `uptime` command on hosts `socrates` and `seneca`
@@ -125,7 +132,7 @@
       
     Philosophy:
 
-      Fail hard and fast. In principle, a well written script would check ${?}
+      1. Fail hard and fast. In principle, a well written script would check ${?}
       after each command and either gracefully handle it, or report an error.
       Few people write scripts this well, so we enforce this check (using
       `cube_check_return` within all APIs) and we encourage you to do the same
@@ -141,9 +148,21 @@
       cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
       cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
       
-      We do not use `set -e` because some functions may handle all errors
+      2. We do not use `set -e` because some functions may handle all errors
       internally (with `cube_check_return`) and use a positive return code as a
       "benign" result (e.g. `cube_set_file_contents`).
+      
+      3. Recent versions of many distributions encourage running most commands
+      as a non-superuser, and then using `sudo` if needed, with some distributions
+      disallowing remote SSH using the `root` account by default. First, the `sudo`
+      command is not standardized (see http://unix.stackexchange.com/a/48553).
+      Moreoever, it is not enough to prefix posixcube APIs with `sudo` because
+      `sudo` doesn't pass along functions (even if they're exported and `sudo` is
+      executed with --preserve-env). `su -c` may be used but it requires
+      password input. For the most common use case of requiring `sudo` for
+      cube_package and cube_service, if `-S` is specified, the commands within
+      those APIs are executed using `sudo`. If you need to run something else as a
+      superuser and you need access to the posixcube APIs, see the `cube_sudo` API.
 
     Frequently Asked Questions:
 
@@ -287,11 +306,11 @@
           Example: cube_total_memory
 
       * cube_ensure_directory
-          Ensure directory $1 exists
+          Ensure directory $1 exists. Return true if the file is created; otherwise, false.
           Example: cube_ensure_directory ~/.ssh/
 
       * cube_ensure_file
-          Ensure file $1 exists
+          Ensure file $1 exists. Return true if the file is created; otherwise, false.
           Example: cube_ensure_file ~/.ssh/authorized_keys
 
       * cube_pushd
@@ -368,6 +387,10 @@
           Print to stdout a substring of $1 strictly after the first match of the
           regular expression $2.
           Example: cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
+      
+      * cube_sudo
+          Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
+          Example: cube_sudo cube_ensure_file /etc/app.txt
 
     Public Variables:
 
