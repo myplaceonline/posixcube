@@ -315,11 +315,12 @@
           Example: cube_ensure_file ~/.ssh/authorized_keys
 
       * cube_pushd
-          Equivalent to `pushd` with $1
+          Add the current directory to a stack of directories and change directory to ${1}
           Example: cube_pushd ~/.ssh/
 
       * cube_popd
-          Equivalent to `popd`
+          Pop the top of the stack of directories from `cube_pushd` and change
+          directory to that directory.
           Example: cube_popd
 
       * cube_has_role
