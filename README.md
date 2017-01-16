@@ -208,7 +208,7 @@
           Example: cube_package install python
 
       * cube_append_str
-          Echo $1 with $2 appended after a space if $1 was not blank.
+          Print $1 to stdout with $2 appended after a space if $1 was not blank.
           Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
       * cube_command_exists
@@ -237,15 +237,15 @@
           Example: [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ] && ...
 
       * cube_current_script_name
-          echo the basename of the currently executing script.
+          Print to stdout the basename of the currently executing script.
           Example: script_name=$(cube_current_script_name)
 
       * cube_current_script_abs_path
-          echo the absolute path the currently executing script.
+          Print to stdout the absolute path the currently executing script.
           Example: script_name=$(cube_current_script_abs_path)
 
       * cube_file_size
-          echo the size of a file $1 in bytes
+          Print to stdout the size of a file $1 in bytes
           Example: cube_file_size some_file
 
       * cube_set_file_contents
@@ -259,23 +259,23 @@
           Example: cube_set_file_contents_string ~/.info "Hello World"
 
       * cube_expand_parameters
-          echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+          Print stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
           Example: cube_expand_parameters < template > output
 
       * cube_readlink
-          Echo the absolute path of $1 without any symbolic links.
+          Print to stdout the absolute path of $1 without any symbolic links.
           Example: cube_readlink /etc/localtime
 
       * cube_random_number
-          Echo a random number between 1 and $1
+          Print to stdout a random number between 1 and $1
           Example: cube_random_number 10
 
       * cube_tmpdir
-          Echo a temporary directory
+          Print to stdout a temporary directory
           Example: cube_tmpdir
 
       * cube_total_memory
-          Echo total system memory in bytes
+          Print to stdout total system memory in bytes
           Example: cube_total_memory
 
       * cube_ensure_directory
@@ -307,11 +307,11 @@
           Example: echo "Hello World" | cube_stdin_contains "Hello"
 
       * cube_interface_ipv4_address
-          Echo the IPv4 address of interface $1
+          Print to stdout the IPv4 address of interface $1
           Example: cube_interface_ipv4_address eth0
 
       * cube_interface_ipv6_address
-          Echo the IPv6 address of interface $1
+          Print to stdout the IPv6 address of interface $1
           Example: cube_interface_ipv6_address eth0
 
       * cube_prompt
@@ -320,7 +320,7 @@
           Example: cube_prompt "Are you sure?"
 
       * cube_hostname
-          Echo full hostname.
+          Print to stdout the full hostname.
           Example: cube_hostname
 
       * cube_user_exists
@@ -346,6 +346,10 @@
       * cube_add_group_user
           Add the user $2 to group $1
           Example: cube_add_group_user nginx nginx
+      
+      * cube_string_contains
+          Return true if ${1} contains ${2}; otherwise, false.
+          Example: cube_string_contains "${cubevar_app_str}" "@" && ...
 
     Public Variables:
 

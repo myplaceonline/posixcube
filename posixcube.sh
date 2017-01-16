@@ -216,7 +216,7 @@ Public APIs:
       Example: cube_package install python
 
   * cube_append_str
-      Echo $1 with $2 appended after a space if $1 was not blank.
+      Print $1 to stdout with $2 appended after a space if $1 was not blank.
       Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
   * cube_command_exists
@@ -245,15 +245,15 @@ Public APIs:
       Example: [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ] && ...
 
   * cube_current_script_name
-      echo the basename of the currently executing script.
+      Print to stdout the basename of the currently executing script.
       Example: script_name=$(cube_current_script_name)
 
   * cube_current_script_abs_path
-      echo the absolute path the currently executing script.
+      Print to stdout the absolute path the currently executing script.
       Example: script_name=$(cube_current_script_abs_path)
 
   * cube_file_size
-      echo the size of a file $1 in bytes
+      Print to stdout the size of a file $1 in bytes
       Example: cube_file_size some_file
 
   * cube_set_file_contents
@@ -267,23 +267,23 @@ Public APIs:
       Example: cube_set_file_contents_string ~/.info "Hello World"
 
   * cube_expand_parameters
-      echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+      Print stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
       Example: cube_expand_parameters < template > output
 
   * cube_readlink
-      Echo the absolute path of $1 without any symbolic links.
+      Print to stdout the absolute path of $1 without any symbolic links.
       Example: cube_readlink /etc/localtime
 
   * cube_random_number
-      Echo a random number between 1 and $1
+      Print to stdout a random number between 1 and $1
       Example: cube_random_number 10
 
   * cube_tmpdir
-      Echo a temporary directory
+      Print to stdout a temporary directory
       Example: cube_tmpdir
 
   * cube_total_memory
-      Echo total system memory in bytes
+      Print to stdout total system memory in bytes
       Example: cube_total_memory
 
   * cube_ensure_directory
@@ -315,11 +315,11 @@ Public APIs:
       Example: echo "Hello World" | cube_stdin_contains "Hello"
 
   * cube_interface_ipv4_address
-      Echo the IPv4 address of interface $1
+      Print to stdout the IPv4 address of interface $1
       Example: cube_interface_ipv4_address eth0
 
   * cube_interface_ipv6_address
-      Echo the IPv6 address of interface $1
+      Print to stdout the IPv6 address of interface $1
       Example: cube_interface_ipv6_address eth0
 
   * cube_prompt
@@ -328,7 +328,7 @@ Public APIs:
       Example: cube_prompt "Are you sure?"
 
   * cube_hostname
-      Echo full hostname.
+      Print to stdout the full hostname.
       Example: cube_hostname
 
   * cube_user_exists
@@ -354,6 +354,10 @@ Public APIs:
   * cube_add_group_user
       Add the user $2 to group $1
       Example: cube_add_group_user nginx nginx
+  
+  * cube_string_contains
+      Return true if ${1} contains ${2}; otherwise, false.
+      Example: cube_string_contains "${cubevar_app_str}" "@" && ...
 
 Public Variables:
 
@@ -412,10 +416,10 @@ POSIXCUBE_SHELL_BASH=1
 
 POSIXCUBE_NODE_HOSTNAME="$(hostname)"
 
-# Description:
-#   Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
-#   a newline.
-# Example call:
+# Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
+# a newline.
+#
+# Example:
 #   cube_echo "Hello World"
 # Example output:
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World
@@ -429,10 +433,10 @@ cube_echo() {
   echo "${@}"
 }
 
-# Description:
-#   Print $1 to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
-#   a newline.
-# Example call:
+# Print $1 to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
+# a newline.
+#
+# Example:
 #   cube_printf "Hello World from PID %5s" $$
 # Example output:
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Hello World from PID   123
@@ -450,10 +454,10 @@ cube_printf() {
   fi
 }
 
-# Description:
-#   Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
-#   suffixed with a newline.
-# Example call:
+# Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
+# suffixed with a newline.
+#
+# Example:
 #   cube_error_echo "Goodbye World"
 # Example output:
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
@@ -467,10 +471,10 @@ cube_error_echo() {
   echo "${@}" 1>&2
 }
 
-# Description:
-#   Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
-#   suffixed with a newline.
-# Example call:
+# Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
+# suffixed with a newline.
+#
+# Example:
 #   cube_error_printf "Goodbye World from PID %5s" $$
 # Example output:
 #   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World from PID   123
@@ -488,10 +492,10 @@ cube_error_printf() {
   fi
 }
 
-# Description:
-#   Print $1 and a stack of functions and processes (if available) with
-#   cube_error_echo and then call `exit 1`.
-# Example call:
+# Print $1 and a stack of functions and processes (if available) with
+# cube_error_echo and then call `exit 1`.
+#
+# Example:
 #   cube_throw "Expected some_file to exist."
 # Arguments: ${@} passed to cube_error_echo
 cube_throw() {
@@ -537,9 +541,9 @@ cube_throw() {
   exit 1
 }
 
-# Description:
-#   Skipping any call stack frames in posixcube.sh, return the line number of the calling stack frame
-# Example call:
+# Skipping any call stack frames in posixcube.sh, return the line number of the calling stack frame
+#
+# Example:
 #   cube_line_number
 # Arguments:
 #   Optional:
@@ -570,9 +574,9 @@ cube_line_number() {
   fi
 }
 
-# Description:
-#   Check if $? is non-zero and call cube_throw if so.
-# Example call:
+# Check if $? is non-zero and call cube_throw if so.
+#
+# Example:
 #   some_command || cube_check_return
 # Arguments: None
 cube_check_return() {
@@ -587,9 +591,9 @@ cube_check_return() {
   return ${cube_check_return_val}
 }
 
-# Description:
-#   Echo $1 with $2 appended after a space if $1 was not blank.
-# Example call:
+# Echo $1 with $2 appended after a space if $1 was not blank.
+#
+# Example:
 #   cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 # Arguments:
 #   Required:
@@ -611,9 +615,9 @@ cube_append_str() {
   fi
 }
 
-# Description:
-#   Check if $1 command or function exists in the current context.
-# Example call:
+# Check if $1 command or function exists in the current context.
+#
+# Example:
 #   cube_command_exists systemctl
 # Arguments:
 #   Required:
@@ -623,9 +627,9 @@ cube_command_exists() {
   command -v ${1} >/dev/null 2>&1
 }
 
-# Description:
-#   Check if $1 exists as a directory.
-# Example call:
+# Check if $1 exists as a directory.
+#
+# Example:
 #   cube_dir_exists /etc/cron.d/
 # Arguments:
 #   Required:
@@ -635,9 +639,9 @@ cube_dir_exists() {
   [ -d "${1}" ]
 }
 
-# Description:
-#   Check if $1 exists as a file with read access.
-# Example call:
+# Check if $1 exists as a file with read access.
+#
+# Example:
 #   cube_file_exists /etc/cron.d/0hourly
 # Arguments:
 #   Required:
@@ -647,9 +651,9 @@ cube_file_exists() {
   [ -r "${1}" ]
 }
 
-# Description:
-#   Detect operating system and return one of the POSIXCUBE_OS_* values.
-# Example call:
+# Detect operating system and return one of the POSIXCUBE_OS_* values.
+#
+# Example:
 #   if [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ]; then ...
 # Arguments: None
 cube_operating_system() {
@@ -670,9 +674,9 @@ cube_operating_system() {
   esac
 }
 
-# Description:
-#   Check if the operating system flavor includes the flavor specified in $1 by one of the POSIXCUBE_OS_FLAVOR_* values.
-# Example call:
+# Check if the operating system flavor includes the flavor specified in $1 by one of the POSIXCUBE_OS_FLAVOR_* values.
+#
+# Example:
 #   if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} ; then ...
 # Arguments:
 #   Required:
@@ -702,9 +706,9 @@ cube_operating_system_has_flavor() {
   return 1
 }
 
-# Description:
-#   Detect current shell and return one of the CUBE_SHELL_* values.
-# Example call:
+# Detect current shell and return one of the CUBE_SHELL_* values.
+#
+# Example:
 #   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then ...
 # Arguments: None
 cube_shell() {
@@ -716,9 +720,9 @@ cube_shell() {
   fi
 }
 
-# Description:
-#   Throw an error if there are fewer than $1 arguments.
-# Example call:
+# Throw an error if there are fewer than $1 arguments.
+#
+# Example:
 #   cube_check_numargs 2 "${@}"
 # Arguments:
 #   Required:
@@ -730,9 +734,9 @@ cube_check_numargs() {
   return 0
 }
 
-# Description:
-#   Run the $1 action on the $2 service.
-# Example call:
+# Run the $1 action on the $2 service.
+#
+# Example:
 #   cube_service start crond
 # Arguments:
 #   Required:
@@ -771,9 +775,9 @@ cube_service() {
   fi
 }
 
-# Description:
-#   Return 0 if service $1 exists; otherwise, 1
-# Example call:
+# Return true if service $1 exists; otherwise, false.
+#
+# Example:
 #   cube_service_exists kdump
 # Arguments:
 #   Required:
@@ -789,10 +793,10 @@ cube_service_exists() {
   fi
 }
 
-# Description:
-#   Pass $@ to the package manager. Implicitly passes the the parameter
-#   to say yes to questions.
-# Example call:
+# Pass $@ to the package manager. Implicitly passes the the parameter
+# to say yes to questions.
+#
+# Example:
 #   cube_package install python
 # Arguments:
 #   Required:
@@ -815,18 +819,18 @@ cube_package() {
   fi
 }
 
-# Description:
-#   echo the basename of the currently executing script.
-# Example call:
+# Echo the basename of the currently executing script.
+#
+# Example:
 #   script_name=$(cube_current_script_name)
 # Arguments: None
 cube_current_script_name() {
   basename "$0"
 }
 
-# Description:
-#   echo the absolute path the currently executing script.
-# Example call:
+# Echo the absolute path the currently executing script.
+#
+# Example:
 #   script_abspath=$(cube_current_script_abs_path)
 # Arguments: None
 cube_current_script_abs_path() {
@@ -834,9 +838,9 @@ cube_current_script_abs_path() {
   echo "${cube_current_script_abs_path_dirname}/$(cube_current_script_name)"
 }
 
-# Description:
-#   echo the size of a file $1 in bytes
-# Example call:
+# Echo the size of a file $1 in bytes
+#
+# Example:
 #   cube_file_size some_file
 # Arguments:
 #   Required:
@@ -850,9 +854,9 @@ cube_file_size() {
   fi
 }
 
-# Description:
-#   echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
-# Example call:
+# Echo stdin to stdout with all ${VAR}'s evaluated (except for \${VAR})
+#
+# Example:
 #   cube_expand_parameters < template > output
 # Arguments: None
 cube_expand_parameters() {
@@ -884,9 +888,9 @@ cube_expand_parameters() {
   done
 }
 
-# Description:
-#   Read stdin into ${cube_read_heredoc_result}
-# Example call:
+# Read stdin into ${cube_read_heredoc_result}
+#
+# Example:
 #   cube_read_heredoc <<'HEREDOC'; cubevar_app_str="${cube_read_heredoc_result}"
 #     `([$\{\
 #   HEREDOC
@@ -904,11 +908,11 @@ cube_read_heredoc() {
   done
 }
 
-# Description:
-#   Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
-#   are different than $2. If $2 ends with ".template" then first process
-#   the file with `cube_expand_parameters`.
-# Example call:
+# Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
+# are different than $2. If $2 ends with ".template" then first process
+# the file with `cube_expand_parameters`.
+#
+# Example:
 #   cube_set_file_contents "/etc/npt.conf" "templates/ntp.conf"
 # Arguments:
 #   Required:
@@ -1000,9 +1004,9 @@ cube_set_file_contents() {
   fi
 }
 
-# Description:
-#   Echo a random number between 1 and $1
-# Example call:
+# Echo a random number between 1 and $1
+#
+# Example:
 #   cube_random_number 10
 # Arguments:
 #   Required:
@@ -1012,18 +1016,18 @@ cube_random_number() {
   echo "" | awk "{ srand(); print int(${1} * rand()) + 1; }"
 }
 
-# Description:
-#   Echo a temporary directory
-# Example call:
+# Echo a temporary directory
+#
+# Example:
 #   cube_tmpdir
 # Arguments: None
 cube_tmpdir() {
   echo "/tmp/"
 }
 
-# Description:
-#   Set the contents of $1 to the string $@. Create file if it doesn't exist.
-# Example call:
+# Set the contents of $1 to the string $@. Create file if it doesn't exist.
+#
+# Example:
 #   cube_set_file_contents_string ~/.info "Hello World"
 # Arguments:
 #   Required:
@@ -1042,9 +1046,9 @@ cube_set_file_contents_string() {
   return ${cube_set_file_contents_result}
 }
 
-# Description:
-#   Echo the absolute path of $1 without any symbolic links.
-# Example call:
+# Echo the absolute path of $1 without any symbolic links.
+#
+# Example:
 #   cube_readlink /etc/localtime
 # Arguments:
 #   Required:
@@ -1071,9 +1075,9 @@ cube_readlink() {
   #fi
 }
 
-# Description:
-#   Echo total system memory in bytes
-# Example call:
+# Echo total system memory in bytes
+#
+# Example:
 #   cube_total_memory
 # Arguments:
 #   Optional:
@@ -1096,9 +1100,9 @@ cube_total_memory() {
   echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/${cube_total_memory_divisor}))
 }
 
-# Description:
-#   Ensure directory $1 exists
-# Example call:
+# Ensure directory $1 exists
+#
+# Example:
 #   cube_ensure_directory ~/.ssh/
 # Arguments:
 #   Requires;
@@ -1129,9 +1133,9 @@ cube_ensure_directory() {
   return ${cube_ensure_directory_result}
 }
 
-# Description:
-#   Ensure file $1 exists
-# Example call:
+# Ensure file $1 exists
+#
+# Example:
 #   cube_ensure_file ~/.ssh/authorized_keys
 # Arguments:
 #   Requires;
@@ -1165,9 +1169,9 @@ cube_ensure_file() {
   return ${cube_ensure_file_result}
 }
 
-# Description:
-#   Equivalent to `pushd` with $1
-# Example call:
+# Equivalent to `pushd` with $1
+#
+# Example:
 #   cube_pushd ~/.ssh/
 # Arguments:
 #   Requires;
@@ -1182,9 +1186,9 @@ cube_pushd() {
   fi
 }
 
-# Description:
-#   Equivalent to `popd`
-# Example call:
+# Equivalent to `popd`
+#
+# Example:
 #   cube_popd
 # Arguments: None
 cube_popd() {
@@ -1195,9 +1199,9 @@ cube_popd() {
   fi
 }
 
-# Description:
-#   Return true if the role $1 is set.
-# Example call:
+# Return true if the role $1 is set.
+#
+# Example:
 #   cube_has_role "database_backup"
 # Arguments:
 #   Requires;
@@ -1213,9 +1217,9 @@ cube_has_role() {
   return 1
 }
 
-# Description:
-#   Check if the file $1 contains $2
-# Example call:
+# Check if the file $1 contains $2
+#
+# Example:
 #   cube_file_contains /etc/fstab nfsmount
 # Arguments:
 #   Required:
@@ -1235,9 +1239,9 @@ cube_file_contains() {
   fi
 }
 
-# Description:
-#   Check if stdin contains $1
-# Example call:
+# Check if stdin contains $1
+#
+# Example:
 #   echo "Hello World" | cube_stdin_contains "Hello"
 # Arguments:
 #   Required:
@@ -1253,9 +1257,9 @@ cube_stdin_contains() {
   fi
 }
 
-# Description:
-#   Echo the IPv4 address of interface $1
-# Example call:
+# Echo the IPv4 address of interface $1
+#
+# Example:
 #   cube_interface_ipv4_address eth0
 # Arguments:
 #   Required:
@@ -1265,9 +1269,9 @@ cube_interface_ipv4_address() {
   ip -4 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
 
-# Description:
-#   Echo the IPv6 address of interface $1
-# Example call:
+# Echo the IPv6 address of interface $1
+#
+# Example:
 #   cube_interface_ipv6_address eth0
 # Arguments:
 #   Required:
@@ -1277,10 +1281,10 @@ cube_interface_ipv6_address() {
   ip -6 -o address show dev ${1} | head -1 | awk '{print $4}' | sed 's/\/.*$//g' || cube_check_return
 }
 
-# Description:
-#   Prompt the question $1 followed by " (y/N)" and prompt for an answer.
-#   A blank string answer is equivalent to No. Return true if yes, false otherwise.
-# Example call:
+# Prompt the question $1 followed by " (y/N)" and prompt for an answer.
+# A blank string answer is equivalent to No. Return true if yes, false otherwise.
+#
+# Example:
 #   cube_prompt "Are you sure?"
 # Arguments:
 #   Required:
@@ -1304,9 +1308,9 @@ cube_prompt() {
   done
 }
 
-# Description:
-#   Echo full hostname.
-# Example call:
+# Echo full hostname.
+#
+# Example:
 #   cube_hostname
 # Arguments:
 #   Optional:
@@ -1319,9 +1323,9 @@ cube_hostname() {
   fi
 }
 
-# Description:
-#   Check if the $1 user exists
-# Example call:
+# Check if the $1 user exists
+#
+# Example:
 #   cube_user_exists nginx
 # Arguments:
 #   Required:
@@ -1332,9 +1336,9 @@ cube_user_exists() {
   return $?
 }
 
-# Description:
-#   Create the user $1
-# Example call:
+# Create the user $1
+#
+# Example:
 #   cube_create_user nginx
 # Arguments:
 #   Required:
@@ -1356,9 +1360,9 @@ cube_create_user() {
   fi
 }
 
-# Description:
-#   Check if the $1 group exists
-# Example call:
+# Check if the $1 group exists
+#
+# Example:
 #   cube_group_exists nginx
 # Arguments:
 #   Required:
@@ -1368,9 +1372,9 @@ cube_group_exists() {
   cube_file_contains /etc/group "^${1}:"
 }
 
-# Description:
-#   Create the group $1
-# Example call:
+# Create the group $1
+#
+# Example:
 #   cube_create_group nginx
 # Arguments:
 #   Required:
@@ -1381,9 +1385,9 @@ cube_create_group() {
   groupadd "${1}" || cube_check_return
 }
 
-# Description:
-#   Check if the $1 group contains the user $2
-# Example call:
+# Check if the $1 group contains the user $2
+#
+# Example:
 #   cube_group_contains_user nginx nginx
 # Arguments:
 #   Required:
@@ -1400,9 +1404,9 @@ cube_group_contains_user() {
   return 1
 }
 
-# Description:
-#   Add the user $2 to group $1
-# Example call:
+# Add the user $2 to group $1
+#
+# Example:
 #   cube_add_group_user nginx nginx
 # Arguments:
 #   Required:
@@ -1420,9 +1424,9 @@ cube_add_group_user() {
   fi
 }
 
-# Description:
-#   Include the ${1} cube
-# Example call:
+# Include the ${1} cube
+#
+# Example:
 #   cube_include core_cube
 # Arguments:
 #   Required:
@@ -1448,6 +1452,20 @@ cube_include() {
   else
     cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
   fi
+}
+
+# Return true if ${1} contains ${2}; otherwise, false.
+#
+# Example:
+#   cube_string_contains "${cubevar_app_str}" "@" && ...
+# Arguments:
+#   Required:
+#     $1: String that is checked for the presence of $2
+#     $2: The search string
+cube_string_contains() {
+  cube_check_numargs 2 "${@}"
+  printf "%s" "${1}" | grep -lq "${2}"
+  return $?
 }
 
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
@@ -2214,3 +2232,4 @@ fi
 #   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
 #   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
 #   7. https://wiki.ubuntu.com/DashAsBinSh
+#   8. Parameter expansion: http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_06_02
