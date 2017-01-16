@@ -28,7 +28,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             uploaded and sourced on each HOST. Option may be specified
             multiple times. Files ending with .enc will be decrypted
             temporarily. If not specified, defaults to envars*sh envars*sh.enc
-  -p PWD    Password for decrypting .enc ENVAR files.
+  -P PWD    Password for decrypting .enc ENVAR files.
   -w PWDF   File that contains the password for decrypting .enc ENVAR files.
             Defaults to ~/.posixcube.pwd
   -r ROLE   Role name. Option may be specified multiple times.
@@ -48,6 +48,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
   -i FILE   SSH `-i` option for identity file.
+  -p PORT   SSH `-p` option.
   -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
             to `-o ConnectTimeout=5`.
   -F FILE   SSH `-F` option.
@@ -146,8 +147,8 @@ Philosophy:
 
 Frequently Asked Questions:
 
-  * Why is there a long delay between "Transferring files to hosts" and the
-    first remote execution?
+  * Why is there a long delay between "Preparing hosts" and the first remote
+    execution?
   
     You can see details of what's happening with the `-d` flag. By default,
     the script first loops through every host and ensures that ~/posixcubes/
@@ -155,8 +156,10 @@ Frequently Asked Questions:
     may be skipped with the `-s` parameter if you've already run the script
     at least once and your version of this script hasn't been updated. Next,
     the script loops through every host and transfers any CUBEs and a script
-    containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
-    you'll see the "Executing on HOST..." line and the real execution starts.
+    containing the CUBEs and COMMANDs to run (`cube_exec.sh`). If the shell
+    is detected to be `bash`, then the above occur asynchronously across the
+    HOSTs. Finally, you'll see the "Executing on HOST..." line and the real
+    execution starts.
 
 Cube Development:
 
@@ -1479,6 +1482,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_ssh_o_options="${p666_ssh_o_options_default}"
   p666_ssh_i_option=""
   p666_ssh_F_option=""
+  p666_ssh_p_option=""
   
   if [ $(cube_shell) -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1616,7 +1620,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:p:w:r:O:z:U:o:i:F:" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1671,7 +1675,7 @@ HEREDOC
       u)
         p666_user="${OPTARG}"
         ;;
-      p)
+      P)
         p666_envar_scripts_password="${OPTARG}"
         ;;
       w)
@@ -1725,6 +1729,9 @@ HEREDOC
       F)
         p666_ssh_F_option="-F ${OPTARG}"
         ;;
+      p)
+        p666_ssh_p_option="-p ${OPTARG}"
+        ;;
       esac
     done
   }
@@ -1750,7 +1757,7 @@ HEREDOC
   
   # Convert ssh -o options to final form
   p666_ssh_o_options_exec=""
-  for p666_ssh_o_option in "${p666_ssh_o_options}"; do
+  for p666_ssh_o_option in ${p666_ssh_o_options}; do
     p666_ssh_o_options_exec=$(cube_append_str "${p666_ssh_o_options_exec}" "-o ${p666_ssh_o_option}")
   done
   
@@ -1880,13 +1887,13 @@ HEREDOC
 
     p666_remote_ssh() {
       p666_remote_ssh_commands="$1"
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} \"${p666_remote_ssh_commands}\" ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ ${p666_async} -eq 1 ]; then
-        ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        ssh ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_user}@${p666_host} ${p666_remote_ssh_commands} 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_host}\n"
@@ -2105,7 +2112,7 @@ HEREDOC
       done
     fi
 
-    [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
+    [ ${p666_quiet} -eq 0 ] && p666_printf "Preparing hosts: ${p666_hosts} ...\n"
     
     p666_async=1
     
@@ -2124,6 +2131,10 @@ HEREDOC
       fi
     fi
     
+    [ ${p666_quiet} -eq 0 ] && p666_printf "Completed preparation.\n"
+    
+    [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
+    
     p666_wait_pids=""
     for p666_host in ${p666_hosts}; do
       if [ ${p666_skip_init} -eq 0 ]; then
@@ -2140,6 +2151,8 @@ HEREDOC
       p666_handle_remote_response "rsync"
     fi
 
+    [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
+    
     p666_wait_pids=""
     p666_async=${p666_async_cubes}
     
@@ -2168,6 +2181,8 @@ fi
 #
 # Version History (using semantic versioning: http://semver.org/):
 #   0.2.0
+#     * Breaking change: Option -p changed to -P.
+#     * Add -p option which is passed to ssh.
 #     * Breaking change: Option -i changed to -U.
 #     * Add -i and -F options which are passed to ssh.
 #     * Breaking change: Option -o changed to -O.

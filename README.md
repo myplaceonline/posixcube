@@ -20,7 +20,7 @@
                 uploaded and sourced on each HOST. Option may be specified
                 multiple times. Files ending with .enc will be decrypted
                 temporarily. If not specified, defaults to envars*sh envars*sh.enc
-      -p PWD    Password for decrypting .enc ENVAR files.
+      -P PWD    Password for decrypting .enc ENVAR files.
       -w PWDF   File that contains the password for decrypting .enc ENVAR files.
                 Defaults to ~/.posixcube.pwd
       -r ROLE   Role name. Option may be specified multiple times.
@@ -40,6 +40,7 @@
       -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
       -i FILE   SSH `-i` option for identity file.
+      -p PORT   SSH `-p` option.
       -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
                 to `-o ConnectTimeout=5`.
       -F FILE   SSH `-F` option.
@@ -138,8 +139,8 @@
 
     Frequently Asked Questions:
 
-      * Why is there a long delay between "Transferring files to hosts" and the
-        first remote execution?
+      * Why is there a long delay between "Preparing hosts" and the first remote
+        execution?
       
         You can see details of what's happening with the `-d` flag. By default,
         the script first loops through every host and ensures that ~/posixcubes/
@@ -147,8 +148,10 @@
         may be skipped with the `-s` parameter if you've already run the script
         at least once and your version of this script hasn't been updated. Next,
         the script loops through every host and transfers any CUBEs and a script
-        containing the CUBEs and COMMANDs to run (`cube_exec.sh`). Finally,
-        you'll see the "Executing on HOST..." line and the real execution starts.
+        containing the CUBEs and COMMANDs to run (`cube_exec.sh`). If the shell
+        is detected to be `bash`, then the above occur asynchronously across the
+        HOSTs. Finally, you'll see the "Executing on HOST..." line and the real
+        execution starts.
 
     Cube Development:
 
