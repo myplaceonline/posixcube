@@ -35,7 +35,7 @@
       -q        Quiet; minimize output.
       -b        If using bash, install programmable tab completion for SSH hosts.
       -s        Skip remote host initialization (making ~/posixcubes, uploading
-                posixcube.sh, etc.
+                posixcube.sh, etc.)
       -k        Keep the cube_exec.sh generated script.
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
       -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
@@ -177,7 +177,7 @@
         at least once and your version of this script hasn't been updated. Next,
         the script loops through every host and transfers any CUBEs and a script
         containing the CUBEs and COMMANDs to run (`cube_exec.sh`). If the shell
-        is detected to be `bash`, then the above occur asynchronously across the
+        is detected to be `bash`, then the above occurs asynchronously across the
         HOSTs. Finally, you'll see the "Executing on HOST..." line and the real
         execution starts.
 
