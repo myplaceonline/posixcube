@@ -869,6 +869,25 @@ cube_package() {
   elif cube_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${*}"
     # -o Dpkg::Options::="--force-confnew"
+    
+    # If another process is currently using apt, then we'll get errors such as:
+    #   E: Could not get lock /var/lib/dpkg/lock - open (11: Resource temporarily unavailable)
+    #   E: Unable to lock the administration directory (/var/lib/dpkg/), is another process using it?
+    # So, if there are apt processes running, wait a little bit to see if they clear up
+    cube_package_iterations=0
+    cube_package_max_iterations=5
+    cube_package_sleep_time=1
+    while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
+      cube_package_iterations=$((cube_package_iterations+1))
+      cube_package_ps_output="$(${cubevar_api_superuser} ps -elf)" || cube_check_return
+      if cube_string_contains "${cube_package_ps_output}" "apt"; then
+        cube_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
+        sleep ${cube_package_sleep_time}
+      else
+        break
+      fi
+    done
+    
     DEBIAN_FRONTEND=noninteractive ${cubevar_api_superuser} apt-get -y "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
@@ -2315,7 +2334,7 @@ HEREDOC
       for p666_host in ${p666_hosts}; do
         # Debian doesn't have rsync installed by default
         # p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-        p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && apt-get -y install rsync); exit \${RC};"
+        p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p666_superuser} apt-get -y install rsync); exit \${RC};"
       done
       
       if [ "${p666_wait_pids}" != "" ]; then
@@ -2410,6 +2429,7 @@ fi
 #   5. Use [ for tests instead of [[ and use = instead of ==.
 #   6. Use a separate [ invocation for each single test, combine them with && and ||.
 #   7. Don't use `set -e`. Handle failures consciously (see Philosophy section).
+#   8. Use shellcheck: https://github.com/koalaman/shellcheck
 #
 # References:
 #   1. http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
