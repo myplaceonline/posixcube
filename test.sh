@@ -2,6 +2,8 @@
 # Some contrived examples
 
 cube_echo "Hello World"
+cube_warning_echo "Watch out, World"
+cube_error_echo "Goodbye, World"
 
 cube_package install atop
 cube_service enable atop

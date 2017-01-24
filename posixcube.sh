@@ -212,12 +212,22 @@ Public APIs:
   * cube_error_echo
       Same as cube_echo except output to stderr and include a red "Error: "
       message prefix.
-      Example: cube_error "Goodbye World"
+      Example: cube_error_echo "Goodbye World"
 
   * cube_error_printf
       Same as cube_printf except output to stderr and include a red "Error: "
       message prefix.
-      Example: cube_error "Goodbye World from PID %5s" $$
+      Example: cube_error_printf "Goodbye World from PID %5s" $$
+
+  * cube_warning_echo
+      Same as cube_echo except output to stderr and include a yellow "Warning: "
+      message prefix.
+      Example: cube_warning_echo "Watch out, World"
+
+  * cube_warning_printf
+      Same as cube_printf except output to stderr and include a yellow "Warning: "
+      message prefix.
+      Example: cube_warning_printf "Watch out, World from PID %5s" $$
 
   * cube_throw
       Same as cube_error_echo but also print a stack of functions and processes
@@ -462,7 +472,7 @@ cubevar_api_debug=0
 cubevar_api_superuser=""
 cubevar_api_node_hostname="$(hostname)"
 
-# Print ${@} to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
+# Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and suffixed with
 # a newline.
 #
 # Example:
@@ -481,7 +491,7 @@ cube_echo() {
   echo "${@}"
 }
 
-# Print $1 to stdout prefixed with ([$(date)]  [$(hostname)]) and suffixed with
+# Print $1 to stdout prefixed with ([$(date)] [$(hostname)]) and suffixed with
 # a newline.
 #
 # Example:
@@ -491,8 +501,8 @@ cube_echo() {
 # Arguments:
 #   Required:
 #     $1: String to print (printf-compatible)
-#   Optional: 
-#     $2: printf arguments 
+#   Optional:
+#     $2: printf arguments
 cube_printf() {
   cube_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
@@ -504,13 +514,13 @@ cube_printf() {
   fi
 }
 
-# Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
+# Print ${@} to stderr prefixed with ([$(date)] [$(hostname)] Error: ) and
 # suffixed with a newline.
 #
 # Example:
 #   cube_error_echo "Goodbye World"
 # Example output:
-#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Goodbye World
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Error: Goodbye World
 # Arguments: ${@} passed to echo
 cube_error_echo() {
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
@@ -523,7 +533,7 @@ cube_error_echo() {
   echo "${@}" 1>&2
 }
 
-# Print $1 to stderr prefixed with ([$(date)]  [$(hostname)] Error: ) and
+# Print $1 to stderr prefixed with ([$(date)] [$(hostname)] Error: ) and
 # suffixed with a newline.
 #
 # Example:
@@ -533,8 +543,8 @@ cube_error_echo() {
 # Arguments:
 #   Required:
 #     $1: String to print (printf-compatible)
-#   Optional: 
-#     $2: printf arguments 
+#   Optional:
+#     $2: printf arguments
 cube_error_printf() {
   cube_error_printf_str=$1; shift
   if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
@@ -543,6 +553,48 @@ cube_error_printf() {
   else
     # shellcheck disable=SC2059
     printf "[$(date)] [${POSIXCUBE_COLOR_RED}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
+  fi
+}
+
+# Print ${@} to stderr prefixed with ([$(date)] [$(hostname)] Warning: ) and
+# suffixed with a newline.
+#
+# Example:
+#   cube_warning_echo "Watch out, World"
+# Example output:
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Warning: Watch out, World
+# Arguments: ${@} passed to echo
+cube_warning_echo() {
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
+    printf "[$(date)] [${POSIXCUBE_COLOR_YELLOW}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_YELLOW}Warning${POSIXCUBE_COLOR_RESET}: " 1>&2
+  else
+    # shellcheck disable=SC2059
+    printf "[$(date)] [${POSIXCUBE_COLOR_YELLOW}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_YELLOW}Warning${POSIXCUBE_COLOR_RESET}: " 1>&2
+  fi
+  echo "${@}" 1>&2
+}
+
+# Print $1 to stderr prefixed with ([$(date)] [$(hostname)] Warning: ) and
+# suffixed with a newline.
+#
+# Example:
+#   cube_warning_printf "Watch out, World from PID %5s" $$
+# Example output:
+#   [Sun Dec 18 09:40:22 PST 2016] [socrates] Watch out, World from PID   123
+# Arguments:
+#   Required:
+#     $1: String to print (printf-compatible)
+#   Optional:
+#     $2: printf arguments
+cube_warning_printf() {
+  cube_warning_printf_str=$1; shift
+  if [ "${POSIXCUBE_CUBE_NAME_WITH_PREFIX}" = "" ]; then
+    # shellcheck disable=SC2059
+    printf "[$(date)] [${POSIXCUBE_COLOR_YELLOW}${cubevar_api_node_hostname}${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_YELLOW}Warning${POSIXCUBE_COLOR_RESET}: ${cube_warning_printf_str}\n" "${@}" 1>&2
+  else
+    # shellcheck disable=SC2059
+    printf "[$(date)] [${POSIXCUBE_COLOR_YELLOW}${cubevar_api_node_hostname}${POSIXCUBE_CUBE_NAME_WITH_PREFIX}$(cube_line_number ":")${POSIXCUBE_COLOR_RESET}] ${POSIXCUBE_COLOR_YELLOW}Warning${POSIXCUBE_COLOR_RESET}: ${cube_error_printf_str}\n" "${@}" 1>&2
   fi
 }
 
@@ -875,13 +927,13 @@ cube_package() {
     #   E: Unable to lock the administration directory (/var/lib/dpkg/), is another process using it?
     # So, if there are apt processes running, wait a little bit to see if they clear up
     cube_package_iterations=0
-    cube_package_max_iterations=5
-    cube_package_sleep_time=1
+    cube_package_max_iterations=6
+    cube_package_sleep_time=10
     while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
       cube_package_iterations=$((cube_package_iterations+1))
       cube_package_ps_output="$(${cubevar_api_superuser} ps -elf)" || cube_check_return
       if cube_string_contains "${cube_package_ps_output}" "apt"; then
-        cube_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
+        cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
         sleep ${cube_package_sleep_time}
       else
         break
