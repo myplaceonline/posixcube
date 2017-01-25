@@ -464,6 +464,15 @@ if [ -t 1 ]; then
     export POSIXCUBE_COLOR_CYAN="$(tput setaf 6)"
     export POSIXCUBE_COLOR_WHITE="$(tput setaf 7)"
   fi
+elif [ "${POSIXCUBE_COLORS}" != "" ]; then
+  export POSIXCUBE_COLOR_RESET="\x1B[0m"
+  export POSIXCUBE_COLOR_RED="\x1B[31m"
+  export POSIXCUBE_COLOR_GREEN="\x1B[32m"
+  export POSIXCUBE_COLOR_YELLOW="\x1B[33m"
+  export POSIXCUBE_COLOR_BLUE="\x1B[34m"
+  export POSIXCUBE_COLOR_PURPLE="\x1B[35m"
+  export POSIXCUBE_COLOR_CYAN="\x1B[36m"
+  export POSIXCUBE_COLOR_WHITE="\x1B[37m"
 fi
 
 export POSIXCUBE_NEWLINE="
@@ -2347,6 +2356,7 @@ cube_echo \"Finished cube: ${p666_cube_name}\"
     cat <<HEREDOC > "${p666_script}"
 #!/bin/sh
 POSIXCUBE_APIS_ONLY=1
+POSIXCUBE_COLORS="${POSIXCUBE_COLORS}"
 . ${p666_remote_script}
 if [ \$? -ne 0 ] ; then
   echo "Could not source ${p666_remote_script} script" 1>&2
