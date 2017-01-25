@@ -56,6 +56,7 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
   -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
             to `-o ConnectTimeout=5`.
   -F FILE   SSH `-F` option.
+  -t        SSH `-t` option.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -441,14 +442,29 @@ HEREDOC
 # Public APIs #
 ###############
 
-export POSIXCUBE_COLOR_RESET="\x1B[0m"
-export POSIXCUBE_COLOR_RED="\x1B[31m"
-export POSIXCUBE_COLOR_GREEN="\x1B[32m"
-export POSIXCUBE_COLOR_YELLOW="\x1B[33m"
-export POSIXCUBE_COLOR_BLUE="\x1B[34m"
-export POSIXCUBE_COLOR_PURPLE="\x1B[35m"
-export POSIXCUBE_COLOR_CYAN="\x1B[36m"
-export POSIXCUBE_COLOR_WHITE="\x1B[37m"
+export POSIXCUBE_COLOR_RESET=""
+export POSIXCUBE_COLOR_RED=""
+export POSIXCUBE_COLOR_GREEN=""
+export POSIXCUBE_COLOR_YELLOW=""
+export POSIXCUBE_COLOR_BLUE=""
+export POSIXCUBE_COLOR_PURPLE=""
+export POSIXCUBE_COLOR_CYAN=""
+export POSIXCUBE_COLOR_WHITE=""
+
+# http://unix.stackexchange.com/a/10065
+if [ -t 1 ]; then
+  tput_colors_output=$(tput colors)
+  if [ -n "${tput_colors_output}" ] && [ ${tput_colors_output} -ge 8 ]; then
+    export POSIXCUBE_COLOR_RESET="$(tput sgr0)"
+    export POSIXCUBE_COLOR_RED="$(tput setaf 1)"
+    export POSIXCUBE_COLOR_GREEN="$(tput setaf 2)"
+    export POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)"
+    export POSIXCUBE_COLOR_BLUE="$(tput setaf 4)"
+    export POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)"
+    export POSIXCUBE_COLOR_CYAN="$(tput setaf 6)"
+    export POSIXCUBE_COLOR_WHITE="$(tput setaf 7)"
+  fi
+fi
 
 export POSIXCUBE_NEWLINE="
 "
@@ -920,7 +936,6 @@ cube_package() {
     ${cubevar_api_superuser} yum -y "${@}" || cube_check_return
   elif cube_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${*}"
-    # -o Dpkg::Options::="--force-confnew"
     
     # If another process is currently using apt, then we'll get errors such as:
     #   E: Could not get lock /var/lib/dpkg/lock - open (11: Resource temporarily unavailable)
@@ -940,7 +955,11 @@ cube_package() {
       fi
     done
     
-    DEBIAN_FRONTEND=noninteractive ${cubevar_api_superuser} apt-get -y "${@}" || cube_check_return
+    (
+      export DEBIAN_FRONTEND=noninteractive
+      # http://askubuntu.com/a/389933
+      ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
+    ) || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
@@ -1481,7 +1500,7 @@ cube_user_exists() {
 cube_create_user() {
   cube_check_numargs 1 "${@}"
   
-  useradd "${1}" || cube_check_return
+  useradd -m "${1}" || cube_check_return
   
   if [ "${2}" != "" ]; then
     usermod -s "${2}" "${1}" || cube_check_return
@@ -1490,6 +1509,8 @@ cube_create_user() {
   if [ "${3}" != "" ]; then
     echo "${1}:${3}" | chpasswd || cube_check_return
   fi
+  
+  cube_echo "Created user ${1}"
 }
 
 # Check if the $1 group exists
@@ -1515,6 +1536,8 @@ cube_create_group() {
   cube_check_numargs 1 "${@}"
   
   groupadd "${1}" || cube_check_return
+
+  cube_echo "Created group ${1}"
 }
 
 # Check if the $1 group contains the user $2
@@ -1554,6 +1577,8 @@ cube_add_group_user() {
   else
     usermod -g "${1}" "${2}"
   fi
+
+  cube_echo "Added user ${2} to group ${1}"
 }
 
 # Include the ${1} cube
@@ -1683,6 +1708,8 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_ssh_i_option=""
   p666_ssh_F_option=""
   p666_ssh_p_option=""
+  # http://serverfault.com/a/593419/259410
+  p666_ssh_t_option=""
   p666_superuser=""
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
@@ -1829,7 +1856,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:S" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:St" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
@@ -1942,6 +1969,9 @@ HEREDOC
       p)
         p666_ssh_p_option="-p ${OPTARG}"
         ;;
+      t)
+        p666_ssh_t_option="-t"
+        ;;
       S)
         p666_superuser="sudo"
         ;;
@@ -2001,7 +2031,7 @@ HEREDOC
                   case "${1}" in
                     show)
                       p666_printf "Contents of ${p666_envar_script}:\n"
-                      cat "${p666_envar_script_new}"
+                      cat "${p666_envar_script_new}" | sed 's/\\\$/$/g'
                       ;;
                     source)
                       chmod u+x "${p666_envar_script_new}"
@@ -2022,7 +2052,7 @@ HEREDOC
                       fi
                       ;;
                     *)
-                      p666_show_usage "Not implemented"
+                      p666_show_usage "${1} Not implemented (encrypted case)"
                       ;;
                   esac
                   
@@ -2033,15 +2063,18 @@ HEREDOC
               else
                 case "${1}" in
                   show)
-                    grep -v "^#!/bin/sh$" "${p666_envar_script}"
+                    grep -v "^#!/bin/sh$" "${p666_envar_script}" | sed 's/\\\$/$/g'
                     ;;
                   source)
                     # shellcheck disable=SC1090
                     . "$(cube_readlink "${p666_envar_script}")"
                     [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
                     ;;
+                  edit)
+                    # We assume the user will edit a non-encrypted file on their own
+                    ;;
                   *)
-                    p666_show_usage "Not implemented"
+                    p666_show_usage "${1} Not implemented (non-encrypted case)"
                     ;;
                 esac
               fi
@@ -2131,17 +2164,17 @@ HEREDOC
         p666_remote_ssh_host="$(cube_string_substring_after "${p666_remote_ssh_host}" "@")"
       fi
       
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${*} ...\n"
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${*} ...\n"
       
       if [ ${p666_parallel} -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
         # shellcheck disable=SC2086
         # shellcheck disable=SC2029
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1 &
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1 &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
         # shellcheck disable=SC2086
         # shellcheck disable=SC2029
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1
+        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1
         p666_host_output_result=$?
         
         [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_remote_ssh_host}\n"
