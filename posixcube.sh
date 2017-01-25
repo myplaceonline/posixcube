@@ -2,7 +2,7 @@
 # posixcube.sh
 #   A POSIX compliant, shell script-based server automation framework.
 
-POSIXCUBE_VERSION=0.1.0
+POSIXCUBE_VERSION=0.2.0
 
 # On why we don't use `set -e` or `set -u`, see the Philosophy section, #2.
 
@@ -454,15 +454,23 @@ export POSIXCUBE_COLOR_WHITE=""
 # http://unix.stackexchange.com/a/10065
 if [ -t 1 ]; then
   tput_colors_output=$(tput colors)
-  if [ -n "${tput_colors_output}" ] && [ ${tput_colors_output} -ge 8 ]; then
-    export POSIXCUBE_COLOR_RESET="$(tput sgr0)"
-    export POSIXCUBE_COLOR_RED="$(tput setaf 1)"
-    export POSIXCUBE_COLOR_GREEN="$(tput setaf 2)"
-    export POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)"
-    export POSIXCUBE_COLOR_BLUE="$(tput setaf 4)"
-    export POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)"
-    export POSIXCUBE_COLOR_CYAN="$(tput setaf 6)"
-    export POSIXCUBE_COLOR_WHITE="$(tput setaf 7)"
+  if [ -n "${tput_colors_output}" ] && [ "${tput_colors_output}" -ge 8 ]; then
+    export POSIXCUBE_COLOR_RESET
+    POSIXCUBE_COLOR_RESET="$(tput sgr0)" || true
+    export POSIXCUBE_COLOR_RED
+    POSIXCUBE_COLOR_RED="$(tput setaf 1)" || true
+    export POSIXCUBE_COLOR_GREEN
+    POSIXCUBE_COLOR_GREEN="$(tput setaf 2)" || true
+    export POSIXCUBE_COLOR_YELLOW
+    POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)" || true
+    export POSIXCUBE_COLOR_BLUE
+    POSIXCUBE_COLOR_BLUE="$(tput setaf 4)" || true
+    export POSIXCUBE_COLOR_PURPLE
+    POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)" || true
+    export POSIXCUBE_COLOR_CYAN
+    POSIXCUBE_COLOR_CYAN="$(tput setaf 6)" || true
+    export POSIXCUBE_COLOR_WHITE
+    POSIXCUBE_COLOR_WHITE="$(tput setaf 7)" || true
   fi
 elif [ "${POSIXCUBE_COLORS}" != "" ]; then
   export POSIXCUBE_COLOR_RESET="\x1B[0m"
@@ -2040,7 +2048,7 @@ HEREDOC
                   case "${1}" in
                     show)
                       p666_printf "Contents of ${p666_envar_script}:\n"
-                      cat "${p666_envar_script_new}" | sed 's/\\\$/$/g'
+                      sed 's/\\\$/$/g' "${p666_envar_script_new}"
                       ;;
                     source)
                       chmod u+x "${p666_envar_script_new}"
