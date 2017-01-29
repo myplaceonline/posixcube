@@ -9,13 +9,19 @@ cube_package install atop
 cube_service enable atop
 cube_service start atop
 
+cube_read_stdin cubevar_app_str <<'HEREDOC'
+  `([$\{\
+HEREDOC
+
+cube_echo "HEREDOC: ${cubevar_app_str}"
+
 if cube_command_exists dnf ; then
   dnf check-update || cube_check_return
 fi
 
 cube_ensure_directory ~/test/
 
-cube_read_heredoc <<'HEREDOC'; cubevar_app_myconfig="${cube_read_heredoc_result}"
+cube_read_stdin cubevar_app_myconfig <<'HEREDOC'
 [app]
 name=${cubevar_app_name}
 test=${cubevar_app_test}

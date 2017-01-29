@@ -252,8 +252,8 @@ Public APIs:
       Example: cube_service start crond
 
   * cube_package
-      Pass $@ to the package manager. Implicitly passes the the parameter
-      to say yes to questions.
+      Pass $@ to the package manager. Implicitly passes the parameter
+      to say yes to questions. On Debian-based systems, use --force-confold
       Example: cube_package install python
 
   * cube_append_str
@@ -414,6 +414,9 @@ Public APIs:
   * cube_sudo
       Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
       Example: cube_sudo cube_ensure_file /etc/app.txt
+  
+  * cube_read_stdin
+      Read stdin (e.g. HEREDOC) into the variable named by the first argument.
 
 Public Variables:
 
@@ -455,22 +458,22 @@ export POSIXCUBE_COLOR_WHITE=""
 if [ -t 1 ]; then
   tput_colors_output=$(tput colors)
   if [ -n "${tput_colors_output}" ] && [ "${tput_colors_output}" -ge 8 ]; then
-    export POSIXCUBE_COLOR_RESET
     POSIXCUBE_COLOR_RESET="$(tput sgr0)" || true
-    export POSIXCUBE_COLOR_RED
+    export POSIXCUBE_COLOR_RESET
     POSIXCUBE_COLOR_RED="$(tput setaf 1)" || true
-    export POSIXCUBE_COLOR_GREEN
+    export POSIXCUBE_COLOR_RED
     POSIXCUBE_COLOR_GREEN="$(tput setaf 2)" || true
-    export POSIXCUBE_COLOR_YELLOW
+    export POSIXCUBE_COLOR_GREEN
     POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)" || true
-    export POSIXCUBE_COLOR_BLUE
+    export POSIXCUBE_COLOR_YELLOW
     POSIXCUBE_COLOR_BLUE="$(tput setaf 4)" || true
-    export POSIXCUBE_COLOR_PURPLE
+    export POSIXCUBE_COLOR_BLUE
     POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)" || true
-    export POSIXCUBE_COLOR_CYAN
+    export POSIXCUBE_COLOR_PURPLE
     POSIXCUBE_COLOR_CYAN="$(tput setaf 6)" || true
-    export POSIXCUBE_COLOR_WHITE
+    export POSIXCUBE_COLOR_CYAN
     POSIXCUBE_COLOR_WHITE="$(tput setaf 7)" || true
+    export POSIXCUBE_COLOR_WHITE
   fi
 elif [ "${POSIXCUBE_COLORS}" != "" ]; then
   export POSIXCUBE_COLOR_RESET="\x1B[0m"
@@ -934,8 +937,8 @@ cube_service_exists() {
   fi
 }
 
-# Pass $@ to the package manager. Implicitly passes the the parameter
-# to say yes to questions.
+# Pass $@ to the package manager. Implicitly passes the parameter
+# to say yes to questions. On Debian-based systems, use --force-confold.
 #
 # Example:
 #   cube_package install python
@@ -1052,25 +1055,25 @@ cube_expand_parameters() {
   done
 }
 
-# Read stdin into ${cube_read_heredoc_result}
+# Read stdin into the variable named by the first argument. Always ends in a newline.
+# Do not use in a pipeline (http://unix.stackexchange.com/a/340932/212882).
 #
 # Example:
-#   cube_read_heredoc <<'HEREDOC'; cubevar_app_str="${cube_read_heredoc_result}"
+#   cube_read_stdin cubevar_app_str <<'HEREDOC'
 #     `([$\{\
 #   HEREDOC
-# Arguments: None
-cube_read_heredoc() {
-  cube_read_heredoc_first=1
-  cube_read_heredoc_result=""
-  while IFS='
-' read -r cube_read_heredoc_line; do
-    if [ ${cube_read_heredoc_first} -eq 1 ]; then
-      cube_read_heredoc_result="${cube_read_heredoc_line}"
-      cube_read_heredoc_first=0
-    else
-      cube_read_heredoc_result="${cube_read_heredoc_result}${POSIXCUBE_NEWLINE}${cube_read_heredoc_line}"
-    fi
+# Arguments:
+#   Required:
+#     $1: Result variable name
+cube_read_stdin() {
+  cube_check_numargs 1 "${@}"
+
+  # http://unix.stackexchange.com/q/340718/212882
+  cube_read_stdin_result=""
+  while IFS="${POSIXCUBE_NEWLINE}" read -r cube_read_stdin_line; do
+    cube_read_stdin_result="${cube_read_stdin_result}${cube_read_stdin_line}${POSIXCUBE_NEWLINE}"
   done
+  eval $1'=${cube_read_stdin_result}'
 }
 
 # Copy the contents of $2 on top of $1 if $1 doesn't exist or the contents
