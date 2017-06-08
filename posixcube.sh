@@ -964,22 +964,28 @@ cube_package() {
     cube_package_iterations=0
     cube_package_max_iterations=6
     cube_package_sleep_time=10
+    cube_package_ready=0
     while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
       cube_package_iterations=$((cube_package_iterations+1))
-      cube_package_ps_output="$(${cubevar_api_superuser} ps -elf)" || cube_check_return
+      cube_package_ps_output="$(${cubevar_api_superuser} ps -e -o pid,cmd | awk '{print $1,$2}')" || cube_check_return
       if cube_string_contains "${cube_package_ps_output}" "apt"; then
         cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
         sleep ${cube_package_sleep_time}
       else
+        cube_package_ready=1
         break
       fi
     done
     
-    (
-      export DEBIAN_FRONTEND=noninteractive
-      # http://askubuntu.com/a/389933
-      ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
-    ) || cube_check_return
+    if [ $cube_package_ready -eq 1 ]; then
+      (
+        export DEBIAN_FRONTEND=noninteractive
+        # http://askubuntu.com/a/389933
+        ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
+      ) || cube_check_return
+    else
+      cube_throw "cube_package failed because another apt process is running: ${cube_package_ps_output}"
+    fi
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
@@ -1062,6 +1068,7 @@ cube_expand_parameters() {
 #   cube_read_stdin cubevar_app_str <<'HEREDOC'
 #     `([$\{\
 #   HEREDOC
+#   echo "${cubevar_app_str}"
 # Arguments:
 #   Required:
 #     $1: Result variable name
@@ -1073,6 +1080,7 @@ cube_read_stdin() {
   while IFS="${POSIXCUBE_NEWLINE}" read -r cube_read_stdin_line; do
     cube_read_stdin_result="${cube_read_stdin_result}${cube_read_stdin_line}${POSIXCUBE_NEWLINE}"
   done
+  # shellcheck disable=SC2086
   eval $1'=${cube_read_stdin_result}'
 }
 
