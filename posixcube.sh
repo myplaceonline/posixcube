@@ -967,8 +967,8 @@ cube_package() {
     cube_package_ready=0
     while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
       cube_package_iterations=$((cube_package_iterations+1))
-      cube_package_ps_output="$(${cubevar_api_superuser} ps -e -o pid,cmd | awk '{print $1,$2}')" || cube_check_return
-      if cube_string_contains "${cube_package_ps_output}" "apt"; then
+      flock -ne /var/lib/dpkg/lock true
+      if [ $? -ne 0 ]; then
         cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
         sleep ${cube_package_sleep_time}
       else
@@ -984,7 +984,7 @@ cube_package() {
         ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
       ) || cube_check_return
     else
-      cube_throw "cube_package failed because another apt process is running: ${cube_package_ps_output}"
+      cube_throw "cube_package failed because another process has f-locked /var/lib/dpkg/lock"
     fi
   else
     cube_throw "cube_package has not implemented your operating system yet"
