@@ -960,6 +960,8 @@ cube_package() {
     # If another process is currently using apt, then we'll get errors such as:
     #   E: Could not get lock /var/lib/dpkg/lock - open (11: Resource temporarily unavailable)
     #   E: Unable to lock the administration directory (/var/lib/dpkg/), is another process using it?
+    #   E: Could not get lock /var/lib/apt/lists/lock - open (11: Resource temporarily unavailable)
+    #   E: Unable to lock directory /var/lib/apt/lists/
     # So, if there are apt processes running, wait a little bit to see if they clear up
     cube_package_iterations=0
     cube_package_max_iterations=6
@@ -968,7 +970,10 @@ cube_package() {
     while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
       cube_package_iterations=$((cube_package_iterations+1))
       flock -ne /var/lib/dpkg/lock true
-      if [ $? -ne 0 ]; then
+      cube_package_lock1=$?
+      flock -ne /var/lib/apt/lists/lock true
+      cube_package_lock2=$?
+      if [ ${cube_package_lock1} -ne 0 ] || [ ${cube_package_lock2} -ne 0 ]; then
         cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
         sleep ${cube_package_sleep_time}
       else
