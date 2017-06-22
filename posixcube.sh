@@ -1606,9 +1606,9 @@ cube_add_group_user() {
   cube_check_numargs 2 "${@}"
   
   if [ "${3}" = "" ]; then
-    usermod -a -G "${1}" "${2}"
+    ${cubevar_api_superuser} usermod -a -G "${1}" "${2}"
   else
-    usermod -g "${1}" "${2}"
+    ${cubevar_api_superuser} usermod -g "${1}" "${2}"
   fi
 
   cube_echo "Added user ${2} to group ${1}"
