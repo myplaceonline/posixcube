@@ -962,35 +962,12 @@ cube_package() {
     #   E: Unable to lock the administration directory (/var/lib/dpkg/), is another process using it?
     #   E: Could not get lock /var/lib/apt/lists/lock - open (11: Resource temporarily unavailable)
     #   E: Unable to lock directory /var/lib/apt/lists/
-    # So, if there are apt processes running, wait a little bit to see if they clear up
-    cube_package_iterations=0
-    cube_package_max_iterations=6
-    cube_package_sleep_time=10
-    cube_package_ready=0
-    while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
-      cube_package_iterations=$((cube_package_iterations+1))
-      ${cubevar_api_superuser} flock -ne /var/lib/dpkg/lock true
-      cube_package_lock1=$?
-      ${cubevar_api_superuser} flock -ne /var/lib/apt/lists/lock true
-      cube_package_lock2=$?
-      if [ ${cube_package_lock1} -ne 0 ] || [ ${cube_package_lock2} -ne 0 ]; then
-        cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
-        sleep ${cube_package_sleep_time}
-      else
-        cube_package_ready=1
-        break
-      fi
-    done
-    
-    if [ $cube_package_ready -eq 1 ]; then
-      (
-        export DEBIAN_FRONTEND=noninteractive
-        # http://askubuntu.com/a/389933
-        ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
-      ) || cube_check_return
-    else
-      cube_throw "cube_package failed because another process has f-locked /var/lib/dpkg/lock"
-    fi
+    # So, if there are apt processes running, use `flock` to wait a little bit to see if they clear up
+    (
+      export DEBIAN_FRONTEND=noninteractive
+      # http://askubuntu.com/a/389933
+      ${cubevar_api_superuser} flock --verbose -eow 60 /var/lib/dpkg/lock apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
+    ) || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
