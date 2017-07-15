@@ -980,7 +980,7 @@ cube_service_exists() {
 }
 
 # Pass $@ to the package manager. Implicitly passes the parameter
-# to say yes to questions. On Debian-based systems, use --force-confold.
+# to say yes to questions. On Debian-based systems, use --force-confold --force-confdef.
 #
 # Example:
 #   cube_package install python
@@ -1017,7 +1017,7 @@ cube_package() {
       (
         export DEBIAN_FRONTEND=noninteractive
         # http://askubuntu.com/a/389933
-        ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}" 2>"${cube_package_tmp_file}"
+        ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" "${@}" 2>"${cube_package_tmp_file}"
       )
       
       cube_package_apt_result=${?}
