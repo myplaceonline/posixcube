@@ -931,8 +931,8 @@ cube_service() {
       elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN}; then
         cube_echo "Executing ${cubevar_api_superuser} update-rc.d -f ${2} remove"
         ${cubevar_api_superuser} update-rc.d -f "${2}" remove || cube_check_return
-        cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} 80 0 1 2 3 4 5 6 ."
-        ${cubevar_api_superuser} update-rc.d "${2}" 80 0 1 2 3 4 5 6 . || cube_check_return
+        cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} stop 80 0 1 2 3 4 5 6 ."
+        ${cubevar_api_superuser} update-rc.d "${2}" stop 80 0 1 2 3 4 5 6 . || cube_check_return
       else
         cube_throw Not implemented
       fi
