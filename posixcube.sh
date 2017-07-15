@@ -888,14 +888,56 @@ cube_check_numargs() {
 #     $2: Service name.
 cube_service() {
   cube_check_numargs 1 "${@}"
+  if [ "${2}" != "" ]; then
+    case "${1}" in
+      stop)
+        cube_service_verb="stopping"
+        ;;
+      enable)
+        cube_service_verb="enabling"
+        ;;
+      disable)
+        cube_service_verb="disabling"
+        ;;
+      *)
+        cube_service_verb="${1}ing"
+        ;;
+    esac
+    cube_echo "$(echo "${cube_service_verb}" | cut -c1 | tr '[:lower:]' '[:upper:]')$(echo "${cube_service_verb}" | cut -c2-) $2 service"
+  fi
   if cube_command_exists systemctl ; then
     if [ "${1}" = "daemon-reload" ]; then
+      cube_echo "Executing ${cubevar_api_superuser} systemctl ${1}"
       ${cubevar_api_superuser} systemctl "${1}" || cube_check_return
     else
+      cube_echo "Executing ${cubevar_api_superuser} systemctl ${1} ${2}"
       ${cubevar_api_superuser} systemctl "${1}" "${2}" || cube_check_return
     fi
   elif cube_command_exists service ; then
-    if [ "${1}" != "daemon-reload" ]; then
+    if [ "${1}" = "enable" ]; then
+      if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA}; then
+        cube_echo "Executing ${cubevar_api_superuser} chkconfig ${2} on"
+        ${cubevar_api_superuser} chkconfig "${2}" on || cube_check_return
+      elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN}; then
+        cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} defaults"
+        ${cubevar_api_superuser} update-rc.d "${2}" defaults || cube_check_return
+      else
+        cube_throw Not implemented
+      fi
+    elif [ "${1}" = "disable" ]; then
+      if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA}; then
+        cube_echo "Executing ${cubevar_api_superuser} chkconfig ${2} off"
+        ${cubevar_api_superuser} chkconfig "${2}" off || cube_check_return
+      elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN}; then
+        cube_echo "Executing ${cubevar_api_superuser} update-rc.d -f ${2} remove"
+        ${cubevar_api_superuser} update-rc.d -f "${2}" remove || cube_check_return
+        cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} 80 0 1 2 3 4 5 6 ."
+        ${cubevar_api_superuser} update-rc.d "${2}" 80 0 1 2 3 4 5 6 . || cube_check_return
+      else
+        cube_throw Not implemented
+      fi
+    elif [ "${1}" != "daemon-reload" ]; then
+      cube_echo "Executing ${cubevar_api_superuser} service ${2} ${1}"
       ${cubevar_api_superuser} service "${2}" "${1}" || cube_check_return
     fi
   else

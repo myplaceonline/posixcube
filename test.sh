@@ -8,6 +8,8 @@ cube_error_echo "Goodbye, World"
 cube_package install atop
 cube_service enable atop
 cube_service start atop
+cube_service stop atop
+cube_service disable atop
 
 cube_read_stdin cubevar_app_str <<'HEREDOC'
   `([$\{\
