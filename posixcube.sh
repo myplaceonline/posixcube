@@ -956,18 +956,45 @@ cube_package() {
     ${cubevar_api_superuser} yum -y "${@}" || cube_check_return
   elif cube_command_exists apt-get ; then
     cube_echo "Executing apt-get -y ${*}"
-    
+
     # If another process is currently using apt, then we'll get errors such as:
     #   E: Could not get lock /var/lib/dpkg/lock - open (11: Resource temporarily unavailable)
     #   E: Unable to lock the administration directory (/var/lib/dpkg/), is another process using it?
     #   E: Could not get lock /var/lib/apt/lists/lock - open (11: Resource temporarily unavailable)
     #   E: Unable to lock directory /var/lib/apt/lists/
-    # So, if there are apt processes running, use `flock` to wait a little bit to see if they clear up
-    (
-      export DEBIAN_FRONTEND=noninteractive
-      # http://askubuntu.com/a/389933
-      ${cubevar_api_superuser} flock --verbose -eow 60 /var/lib/dpkg/lock apt-get -y -o Dpkg::Options::="--force-confold" "${@}"
-    ) || cube_check_return
+    # Unfortunately, apt uses two `flock`s individually, so we can't just use `flock -eow`. Separate `flock -ne`
+    # return checks still required a loop because of a race condition, so instead we just repeat if we see the error.
+    cube_package_iterations=0
+    cube_package_max_iterations=6
+    cube_package_sleep_time=10
+    while [ "${cube_package_iterations}" -lt "${cube_package_max_iterations}" ]; do
+      cube_package_iterations=$((cube_package_iterations+1))
+      
+      cube_package_tmp_file="${TMPDIR:-/tmp}/posixcube_stderr.$$"
+      
+      (
+        export DEBIAN_FRONTEND=noninteractive
+        # http://askubuntu.com/a/389933
+        ${cubevar_api_superuser} apt-get -y -o Dpkg::Options::="--force-confold" "${@}" 2>"${cube_package_tmp_file}"
+      )
+      
+      cube_package_apt_result=${?}
+      
+      if cube_file_contains "${cube_package_tmp_file}" "E: Could not get lock /var/lib/" ; then
+        rm "${cube_package_tmp_file}" || cube_check_return
+        cube_warning_echo "Some apt process is currently running. Sleeping for ${cube_package_sleep_time}s. Iteration ${cube_package_iterations}/${cube_package_max_iterations}"
+        sleep ${cube_package_sleep_time}
+      else
+        cat "${cube_package_tmp_file}" 1>&2
+        rm "${cube_package_tmp_file}" || cube_check_return
+        if [ ${cube_package_apt_result} -ne 0 ]; then
+          cube_throw "apt command failed with code ${cube_package_apt_result}"
+        fi
+        return 0
+      fi
+    done
+    
+    cube_throw "cube_package failed because another process has f-locked /var/lib/dpkg/lock or /var/lib/apt/lists/lock"
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
