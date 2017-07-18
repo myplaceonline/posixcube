@@ -46,6 +46,7 @@
       -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
                 to `-o ConnectTimeout=5`.
       -F FILE   SSH `-F` option.
+      -t        SSH `-t` option.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -202,12 +203,22 @@
       * cube_error_echo
           Same as cube_echo except output to stderr and include a red "Error: "
           message prefix.
-          Example: cube_error "Goodbye World"
+          Example: cube_error_echo "Goodbye World"
 
       * cube_error_printf
           Same as cube_printf except output to stderr and include a red "Error: "
           message prefix.
-          Example: cube_error "Goodbye World from PID %5s" $$
+          Example: cube_error_printf "Goodbye World from PID %5s" $$
+
+      * cube_warning_echo
+          Same as cube_echo except output to stderr and include a yellow "Warning: "
+          message prefix.
+          Example: cube_warning_echo "Watch out, World"
+
+      * cube_warning_printf
+          Same as cube_printf except output to stderr and include a yellow "Warning: "
+          message prefix.
+          Example: cube_warning_printf "Watch out, World from PID %5s" $$
 
       * cube_throw
           Same as cube_error_echo but also print a stack of functions and processes
@@ -231,8 +242,8 @@
           Example: cube_service start crond
 
       * cube_package
-          Pass $@ to the package manager. Implicitly passes the the parameter
-          to say yes to questions.
+          Pass $@ to the package manager. Implicitly passes the parameter
+          to say yes to questions. On Debian-based systems, use --force-confold
           Example: cube_package install python
 
       * cube_append_str
@@ -307,11 +318,11 @@
           Example: cube_total_memory
 
       * cube_ensure_directory
-          Ensure directory $1 exists. Return true if the file is created; otherwise, false.
+          Ensure directory $1, and parent directories, exist. Return true if the directory is created; otherwise, false.
           Example: cube_ensure_directory ~/.ssh/
 
       * cube_ensure_file
-          Ensure file $1 exists. Return true if the file is created; otherwise, false.
+          Ensure file $1, and parent directories, exist. Return true if the file is created; otherwise, false.
           Example: cube_ensure_file ~/.ssh/authorized_keys
 
       * cube_pushd
@@ -393,6 +404,9 @@
       * cube_sudo
           Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
           Example: cube_sudo cube_ensure_file /etc/app.txt
+      
+      * cube_read_stdin
+          Read stdin (e.g. HEREDOC) into the variable named by the first argument.
 
     Public Variables:
 

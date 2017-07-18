@@ -328,11 +328,11 @@ Public APIs:
       Example: cube_total_memory
 
   * cube_ensure_directory
-      Ensure directory $1 exists. Return true if the file is created; otherwise, false.
+      Ensure directory $1, and parent directories, exist. Return true if the directory is created; otherwise, false.
       Example: cube_ensure_directory ~/.ssh/
 
   * cube_ensure_file
-      Ensure file $1 exists. Return true if the file is created; otherwise, false.
+      Ensure file $1, and parent directories, exist. Return true if the file is created; otherwise, false.
       Example: cube_ensure_file ~/.ssh/authorized_keys
 
   * cube_pushd
@@ -1327,7 +1327,7 @@ cube_total_memory() {
   echo $((($(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')*1024)/cube_total_memory_divisor))
 }
 
-# Ensure directory $1 exists. Return true if the directory is created; otherwise, false.
+# Ensure directory $1, and parent directories, exist. Return true if the directory is created; otherwise, false.
 #
 # Example:
 #   cube_ensure_directory ~/.ssh/
@@ -1360,7 +1360,7 @@ cube_ensure_directory() {
   return ${cube_ensure_directory_result}
 }
 
-# Ensure file $1 exists. Return true if the file is created; otherwise, false.
+# Ensure file $1, and parent directories, exist. Return true if the file is created; otherwise, false.
 #
 # Example:
 #   cube_ensure_file ~/.ssh/authorized_keys
