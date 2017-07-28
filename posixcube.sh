@@ -2286,16 +2286,34 @@ HEREDOC
       if [ "${p666_parallel}" -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
         [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
 
-        # Allow globbing of source(s)
-        # shellcheck disable=SC2086
-        ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+        if [ "${p666_ssh_o_options_exec}" != "" ]; then
+          if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+            # shellcheck disable=SC2086
+            ${p666_transfer_command} -e "ssh ${p666_ssh_o_options_exec}" ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+          else
+            # shellcheck disable=SC2086
+            ${p666_transfer_command} ${p666_ssh_o_options_exec} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+          fi
+        else
+          # shellcheck disable=SC2086
+          ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+        fi
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
         [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
         
-        # Allow globbing of source(s)
-        # shellcheck disable=SC2086
-        ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+        if [ "${p666_ssh_o_options_exec}" != "" ]; then
+          if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+            # shellcheck disable=SC2086
+            ${p666_transfer_command} -e "ssh ${p666_ssh_o_options_exec}" ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+          else
+            # shellcheck disable=SC2086
+            ${p666_transfer_command} ${p666_ssh_o_options_exec} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+          fi
+        else
+          # shellcheck disable=SC2086
+          ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+        fi
         p666_transfer_result=$?
         
         p666_handle_remote_response ${p666_transfer_result} "${p666_remote_transfer_host}" "${p666_transfer_command}"
