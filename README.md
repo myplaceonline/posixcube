@@ -2,11 +2,21 @@
 
 ## Usage
 
-    usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
+    usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
 
       A POSIX compliant, shell script-based server automation framework.
 
       -?        Help.
+      -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
+      -b        If using bash, install programmable tab completion for SSH hosts.
+      -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
+                are also specified, cubes are run first.
+      -d        Print debugging information.
+      -e ENVAR  Shell script with environment variable assignments which is
+                uploaded and sourced on each HOST. Option may be specified
+                multiple times. Files ending with .enc will be decrypted
+                temporarily. If not specified, defaults to envars*sh envars*sh.enc
+      -F FILE   SSH `-F` option.
       -h HOST   Target host. Option may be specified multiple times. The HOST may
                 be preceded with USER@ to specify the remote user. If a host has
                 a wildcard ('*'), then HOST is interpeted as a regular expression,
@@ -14,39 +24,30 @@
                 files are added to the HOST list: /etc/ssh_config,
                 /etc/ssh/ssh_config, ~/.ssh/config, /etc/ssh_known_hosts,
                 /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
-      -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
-                are also specified, cubes are run first.
-      -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
-      -e ENVAR  Shell script with environment variable assignments which is
-                uploaded and sourced on each HOST. Option may be specified
-                multiple times. Files ending with .enc will be decrypted
-                temporarily. If not specified, defaults to envars*sh envars*sh.enc
-      -P PWD    Password for decrypting .enc ENVAR files.
-      -w PWDF   File that contains the password for decrypting .enc ENVAR files.
-                Defaults to ~/.posixcube.pwd
-      -r ROLE   Role name. Option may be specified multiple times.
+      -i FILE   SSH `-i` option for identity file.
+      -k        Keep the cube_exec.sh generated script.
+      -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
+                to `-o ConnectTimeout=5`.
       -O P=V    Set the specified variable P with the value V. Option may be
                 specified multiple times. Do not put double quotes around V. If
                 V contains *, replace with matching hosts per the -h algorithm.
+      -p PORT   SSH `-p` option.
+      -P PWD    Password for decrypting .enc ENVAR files.
+      -q        Quiet; minimize output.
+      -r ROLE   Role name. Option may be specified multiple times.
+      -R        Use `rsync` instead of scp.
+      -s        Skip remote host initialization (making ~/posixcubes, uploading
+                posixcube.sh, etc.)
+      -S        Run cube_package and cube_service APIs as superuser.
+      -t        SSH `-t` option.
+      -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
       -U CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
                 includes this CUBE using cube_include.
       -v        Show version information.
-      -d        Print debugging information.
-      -q        Quiet; minimize output.
-      -b        If using bash, install programmable tab completion for SSH hosts.
-      -s        Skip remote host initialization (making ~/posixcubes, uploading
-                posixcube.sh, etc.)
-      -k        Keep the cube_exec.sh generated script.
+      -w PWDF   File that contains the password for decrypting .enc ENVAR files.
+                Defaults to ~/.posixcube.pwd
       -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
-      -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
       -y        If a HOST returns a non-zero code, continue processing other HOSTs.
-      -S        Run cube_package and cube_service APIs as superuser.
-      -i FILE   SSH `-i` option for identity file.
-      -p PORT   SSH `-p` option.
-      -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
-                to `-o ConnectTimeout=5`.
-      -F FILE   SSH `-F` option.
-      -t        SSH `-t` option.
       COMMAND   Remote command to run on each HOST. Option may be specified
                 multiple times. If no HOSTs are specified, available sub-commands:
                   edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -59,7 +60,7 @@
       posixcube.sh is used to execute CUBEs and/or COMMANDs on one or more HOSTs.
       
       A CUBE is a shell script or directory containing shell scripts. The CUBE
-      is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
+      is transferred to each HOST. If CUBE is a shell script, it's executed. If
       CUBE is a directory, a shell script of the same name in that directory
       is executed. In both cases, the directory is changed to the directory
       containing the script before execution so that you may reference files

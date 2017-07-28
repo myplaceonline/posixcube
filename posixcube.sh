@@ -12,11 +12,21 @@ p666_show_usage() {
   fi
 
   cat <<'HEREDOC'
-usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
+usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
 
   A POSIX compliant, shell script-based server automation framework.
 
   -?        Help.
+  -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
+  -b        If using bash, install programmable tab completion for SSH hosts.
+  -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
+            are also specified, cubes are run first.
+  -d        Print debugging information.
+  -e ENVAR  Shell script with environment variable assignments which is
+            uploaded and sourced on each HOST. Option may be specified
+            multiple times. Files ending with .enc will be decrypted
+            temporarily. If not specified, defaults to envars*sh envars*sh.enc
+  -F FILE   SSH `-F` option.
   -h HOST   Target host. Option may be specified multiple times. The HOST may
             be preceded with USER@ to specify the remote user. If a host has
             a wildcard ('*'), then HOST is interpeted as a regular expression,
@@ -24,39 +34,30 @@ usage: posixcube.sh -h HOST... [OPTION]... COMMAND...
             files are added to the HOST list: /etc/ssh_config,
             /etc/ssh/ssh_config, ~/.ssh/config, /etc/ssh_known_hosts,
             /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
-  -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
-            are also specified, cubes are run first.
-  -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
-  -e ENVAR  Shell script with environment variable assignments which is
-            uploaded and sourced on each HOST. Option may be specified
-            multiple times. Files ending with .enc will be decrypted
-            temporarily. If not specified, defaults to envars*sh envars*sh.enc
-  -P PWD    Password for decrypting .enc ENVAR files.
-  -w PWDF   File that contains the password for decrypting .enc ENVAR files.
-            Defaults to ~/.posixcube.pwd
-  -r ROLE   Role name. Option may be specified multiple times.
+  -i FILE   SSH `-i` option for identity file.
+  -k        Keep the cube_exec.sh generated script.
+  -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
+            to `-o ConnectTimeout=5`.
   -O P=V    Set the specified variable P with the value V. Option may be
             specified multiple times. Do not put double quotes around V. If
             V contains *, replace with matching hosts per the -h algorithm.
+  -p PORT   SSH `-p` option.
+  -P PWD    Password for decrypting .enc ENVAR files.
+  -q        Quiet; minimize output.
+  -r ROLE   Role name. Option may be specified multiple times.
+  -R        Use `rsync` instead of scp.
+  -s        Skip remote host initialization (making ~/posixcubes, uploading
+            posixcube.sh, etc.)
+  -S        Run cube_package and cube_service APIs as superuser.
+  -t        SSH `-t` option.
+  -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
   -U CUBE   Upload a CUBE but do not execute it. This is needed when one CUBE
             includes this CUBE using cube_include.
   -v        Show version information.
-  -d        Print debugging information.
-  -q        Quiet; minimize output.
-  -b        If using bash, install programmable tab completion for SSH hosts.
-  -s        Skip remote host initialization (making ~/posixcubes, uploading
-            posixcube.sh, etc.)
-  -k        Keep the cube_exec.sh generated script.
+  -w PWDF   File that contains the password for decrypting .enc ENVAR files.
+            Defaults to ~/.posixcube.pwd
   -z SPEC   Use the SPEC set of options from the ./cubespecs.ini file
-  -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
   -y        If a HOST returns a non-zero code, continue processing other HOSTs.
-  -S        Run cube_package and cube_service APIs as superuser.
-  -i FILE   SSH `-i` option for identity file.
-  -p PORT   SSH `-p` option.
-  -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
-            to `-o ConnectTimeout=5`.
-  -F FILE   SSH `-F` option.
-  -t        SSH `-t` option.
   COMMAND   Remote command to run on each HOST. Option may be specified
             multiple times. If no HOSTs are specified, available sub-commands:
               edit: Decrypt, edit, and re-encrypt ENVAR file with $EDITOR.
@@ -69,7 +70,7 @@ Description:
   posixcube.sh is used to execute CUBEs and/or COMMANDs on one or more HOSTs.
   
   A CUBE is a shell script or directory containing shell scripts. The CUBE
-  is rsync'ed to each HOST. If CUBE is a shell script, it's executed. If
+  is transferred to each HOST. If CUBE is a shell script, it's executed. If
   CUBE is a directory, a shell script of the same name in that directory
   is executed. In both cases, the directory is changed to the directory
   containing the script before execution so that you may reference files
@@ -503,6 +504,9 @@ export POSIXCUBE_OS_FLAVOR_UBUNTU=3
 
 export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
+
+POSIXCUBE_TRANSFER_SCP="scp -rCpq"
+POSIXCUBE_TRANSFER_RSYNC="rsync -rlpt" # Don't use -a on rsync so that ownership is picked up from the specified user
 
 cubevar_api_debug=0
 cubevar_api_superuser=""
@@ -1790,6 +1794,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   # http://serverfault.com/a/593419/259410
   p666_ssh_t_option=""
   p666_superuser=""
+  p666_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p666_parallel=64
@@ -1935,35 +1940,32 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:St" p666_opt "${@}"; do
+    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:StR" p666_opt "${@}"; do
       case "$p666_opt" in
       \?)
         p666_show_usage
-        ;;
-      v)
-        p666_show_version
-        exit 1
-        ;;
-      d)
-        p666_debug=1
-        ;;
-      q)
-        p666_quiet=1
-        ;;
-      s)
-        p666_skip_init=1
-        ;;
-      k)
-        p666_keep_exec=1
-        ;;
-      y)
-        p666_skip_host_errors=1
         ;;
       a)
         p666_async_cubes=1
         ;;
       b)
         p666_install
+        ;;
+      c)
+        p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
+        ;;
+      d)
+        p666_debug=1
+        ;;
+      e)
+        if [ ! -r "${OPTARG}" ]; then
+          p666_printf_error "Could not find ${OPTARG} ENVAR script."
+          exit 1
+        fi
+        p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
+        ;;
+      F)
+        p666_ssh_F_option="-F ${OPTARG}"
         ;;
       h)
         p666_processed_hostname=$(p666_process_hostname "${OPTARG}")
@@ -1974,30 +1976,17 @@ HEREDOC
           exit 1
         fi
         ;;
-      c)
-        p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
+      i)
+        p666_ssh_i_option="-i ${OPTARG}"
         ;;
-      U)
-        p666_include_cubes=$(cube_append_str "${p666_include_cubes}" "${OPTARG}")
+      k)
+        p666_keep_exec=1
         ;;
-      e)
-        if [ ! -r "${OPTARG}" ]; then
-          p666_printf_error "Could not find ${OPTARG} ENVAR script."
-          exit 1
+      o)
+        if [ "${p666_ssh_o_options}" = "${p666_ssh_o_options_default}" ]; then
+          p666_ssh_o_options=""
         fi
-        p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
-        ;;
-      u)
-        p666_user="${OPTARG}"
-        ;;
-      P)
-        p666_envar_scripts_password="${OPTARG}"
-        ;;
-      w)
-        p666_envar_scripts_password="$(cat "${OPTARG}")" || cube_check_return
-        ;;
-      r)
-        p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
+        p666_ssh_o_options=$(cube_append_str "${p666_ssh_o_options}" "${OPTARG}")
         ;;
       O)
         # Break up into name and value
@@ -2005,6 +1994,46 @@ HEREDOC
         p666_option_value=$(echo "${OPTARG}" | sed "s/^${p666_option_name}=//")
         p666_option_value=$(p666_process_hostname "${p666_option_value}")
         p666_options=$(cube_append_str "${p666_options}" "${p666_option_name}=\"${p666_option_value}\"" "${POSIXCUBE_NEWLINE}")
+        ;;
+      p)
+        p666_ssh_p_option="-p ${OPTARG}"
+        ;;
+      P)
+        p666_envar_scripts_password="${OPTARG}"
+        ;;
+      q)
+        p666_quiet=1
+        ;;
+      r)
+        p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
+        ;;
+      R)
+        p666_transfer_command="${POSIXCUBE_TRANSFER_RSYNC}"
+        ;;
+      s)
+        p666_skip_init=1
+        ;;
+      S)
+        p666_superuser="sudo"
+        ;;
+      t)
+        p666_ssh_t_option="-t"
+        ;;
+      u)
+        p666_user="${OPTARG}"
+        ;;
+      U)
+        p666_include_cubes=$(cube_append_str "${p666_include_cubes}" "${OPTARG}")
+        ;;
+      v)
+        p666_show_version
+        exit 1
+        ;;
+      w)
+        p666_envar_scripts_password="$(cat "${OPTARG}")" || cube_check_return
+        ;;
+      y)
+        p666_skip_host_errors=1
         ;;
       z)
         if [ -r "${p666_specfile}" ]; then
@@ -2032,27 +2061,6 @@ HEREDOC
           p666_printf_error "Could not find ${p666_specfile} file"
           exit 1
         fi
-        ;;
-      o)
-        if [ "${p666_ssh_o_options}" = "${p666_ssh_o_options_default}" ]; then
-          p666_ssh_o_options=""
-        fi
-        p666_ssh_o_options=$(cube_append_str "${p666_ssh_o_options}" "${OPTARG}")
-        ;;
-      i)
-        p666_ssh_i_option="-i ${OPTARG}"
-        ;;
-      F)
-        p666_ssh_F_option="-F ${OPTARG}"
-        ;;
-      p)
-        p666_ssh_p_option="-p ${OPTARG}"
-        ;;
-      t)
-        p666_ssh_t_option="-t"
-        ;;
-      S)
-        p666_superuser="sudo"
         ;;
       esac
     done
@@ -2273,25 +2281,24 @@ HEREDOC
         p666_remote_transfer_host="$(cube_string_substring_after "${p666_remote_transfer_host}" "@")"
       fi
       
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing rsync ${p666_remote_transfer_source} to ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest} ...\n"
+      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing transfer ${p666_remote_transfer_source} to ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest} ...\n"
       
-      # Don't use -a on rsync so that ownership is picked up from the specified user
       if [ "${p666_parallel}" -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
-        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+        [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
 
         # Allow globbing of source(s)
         # shellcheck disable=SC2086
-        rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+        ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
         p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
       else
-        [ ${p666_debug} -eq 1 ] && p666_printf "Rsyncing in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+        [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
         
         # Allow globbing of source(s)
         # shellcheck disable=SC2086
-        rsync -rlpt ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
-        p666_rsync_result=$?
+        ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+        p666_transfer_result=$?
         
-        p666_handle_remote_response ${p666_rsync_result} "${p666_remote_transfer_host}" "rsync"
+        p666_handle_remote_response ${p666_transfer_result} "${p666_remote_transfer_host}" "${p666_transfer_command}"
       fi
     }
 
@@ -2497,9 +2504,12 @@ HEREDOC
     if [ ${p666_skip_init} -eq 0 ]; then
       p666_wait_pids=""
       for p666_host in ${p666_hosts}; do
-        # Debian doesn't have rsync installed by default
-        # p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
-        p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p666_superuser} apt-get -y install rsync); exit \${RC};"
+        if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+          # Debian doesn't have rsync installed by default
+          p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p666_superuser} apt-get -y install rsync); exit \${RC};"
+        else
+          p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+        fi
       done
       
       if [ "${p666_wait_pids}" != "" ]; then
@@ -2531,7 +2541,7 @@ HEREDOC
       wait ${p666_wait_pids}
       p666_host_output_result=$?
       
-      p666_handle_remote_response ${p666_host_output_result} "" "rsync"
+      p666_handle_remote_response ${p666_host_output_result} "" "${p666_transfer_command}"
     fi
 
     [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
