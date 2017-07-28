@@ -47,7 +47,8 @@ usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
   -r ROLE   Role name. Option may be specified multiple times.
   -R        Use `rsync` instead of scp.
   -s        Skip remote host initialization (making ~/posixcubes, uploading
-            posixcube.sh, etc.)
+            posixcube.sh, etc.). Assumes at least one run completed without -s.
+            Does not support encrypted ENVAR files.
   -S        Run cube_package and cube_service APIs as superuser.
   -t        SSH `-t` option.
   -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
@@ -1776,6 +1777,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p666_cubes=""
   p666_include_cubes=""
   p666_envar_scripts=""
+  p666_envar_scripts_specified=0
   p666_envar_scripts_password=""
   p666_user="${USER}"
   # shellcheck disable=SC2088
@@ -1958,7 +1960,8 @@ HEREDOC
         p666_debug=1
         ;;
       e)
-        if [ ! -r "${OPTARG}" ]; then
+        p666_envar_scripts_specified=1
+        if [ "${OPTARG}" != "" ] && [ ! -r "${OPTARG}" ]; then
           p666_printf_error "Could not find ${OPTARG} ENVAR script."
           exit 1
         fi
@@ -2077,12 +2080,12 @@ HEREDOC
     p666_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
   fi
 
-  if [ "${p666_envar_scripts}" = "" ]; then
+  if [ ${p666_envar_scripts_specified} -eq 0 ] && [ "${p666_envar_scripts}" = "" ]; then
     # shellcheck disable=SC2012
     # shellcheck disable=SC2086
     p666_envar_scripts="$(ls -1 ${p666_default_envars} 2>/dev/null | paste -sd ' ' -)"
   fi
-
+  
   if [ "${p666_envar_scripts}" != "" ]; then
     [ ${p666_debug} -eq 1 ] && p666_printf "Using ENVAR files: ${p666_envar_scripts}\n"
   fi
@@ -2365,15 +2368,23 @@ HEREDOC
       
       chmod u+x "${p666_envar_script}"
       
-      # shellcheck disable=SC2116
-      p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/ || cube_check_return
-. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
-
       if [ ${p666_envar_script_remove} -eq 1 ]; then
+      
+        # We don't check the return value of the remove because that can cause errors with `-s`
+      
         # shellcheck disable=SC2116
         p666_script_contents="${p666_script_contents}
-rm -f $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
+cd ${p666_cubedir}/ || cube_check_return
+. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}")"
+
+        # shellcheck disable=SC2116
+        p666_script_contents="${p666_script_contents}
+rm -f $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}")"
+      else
+        # shellcheck disable=SC2116
+        p666_script_contents="${p666_script_contents}
+cd ${p666_cubedir}/ || cube_check_return
+. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
       fi
     done
     
@@ -2515,11 +2526,11 @@ HEREDOC
       done
     fi
 
-    [ ${p666_quiet} -eq 0 ] && p666_printf "Preparing hosts: ${p666_hosts} ...\n"
-    
     p666_async=1
     
     if [ ${p666_skip_init} -eq 0 ]; then
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Preparing hosts: ${p666_hosts} ...\n"
+    
       p666_wait_pids=""
       for p666_host in ${p666_hosts}; do
         if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
@@ -2538,31 +2549,31 @@ HEREDOC
         
         p666_handle_remote_response ${p666_host_output_result} "" "Remote commands through SSH"
       fi
-    fi
-    
-    [ ${p666_quiet} -eq 0 ] && p666_printf "Completed preparation.\n"
-    
-    [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
-    
-    p666_wait_pids=""
-    for p666_host in ${p666_hosts}; do
-      if [ ${p666_skip_init} -eq 0 ]; then
-        p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
-      else
-        p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
-      fi
-    done
-    
-    if [ "${p666_wait_pids}" != "" ]; then
-      [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
       
-      wait ${p666_wait_pids}
-      p666_host_output_result=$?
-      
-      p666_handle_remote_response ${p666_host_output_result} "" "${p666_transfer_command}"
-    fi
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Completed preparation.\n"
 
-    [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
+      
+      p666_wait_pids=""
+      for p666_host in ${p666_hosts}; do
+        if [ ${p666_skip_init} -eq 0 ]; then
+          p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
+        else
+          p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
+        fi
+      done
+      
+      if [ "${p666_wait_pids}" != "" ]; then
+        [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
+        
+        wait ${p666_wait_pids}
+        p666_host_output_result=$?
+        
+        p666_handle_remote_response ${p666_host_output_result} "" "${p666_transfer_command}"
+      fi
+
+      [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
+    fi
     
     p666_wait_pids=""
     p666_async=${p666_async_cubes}

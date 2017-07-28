@@ -37,7 +37,8 @@
       -r ROLE   Role name. Option may be specified multiple times.
       -R        Use `rsync` instead of scp.
       -s        Skip remote host initialization (making ~/posixcubes, uploading
-                posixcube.sh, etc.)
+                posixcube.sh, etc.). Assumes at least one run completed without -s.
+                Does not support encrypted ENVAR files.
       -S        Run cube_package and cube_service APIs as superuser.
       -t        SSH `-t` option.
       -u USER   SSH user. Defaults to ${USER}. This may also be specified in HOST.
