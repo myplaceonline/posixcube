@@ -7,8 +7,8 @@
       A POSIX compliant, shell script-based server automation framework.
 
       -?        Help.
-      -a        Asynchronously execute remote CUBEs/COMMANDs. Works on Bash only.
-      -b        If using bash, install programmable tab completion for SSH hosts.
+      -a        If using Bash, asynchronously execute remote CUBEs/COMMANDs.
+      -b        If using Bash, install programmable tab completion for SSH hosts.
       -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
                 are also specified, cubes are run first.
       -d        Print debugging information.
