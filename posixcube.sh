@@ -2399,7 +2399,7 @@ cd ${p666_cubedir}/ || cube_check_return
           p666_script_contents="${p666_script_contents}
 cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
 cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube\"
+POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube. Note: some posixcube APIs may return non-zero successful. If this is not checked, then consider ending the script with the statement true.\"
 cube_echo \"Finished cube: ${p666_cube_name}\"
 "
           if [ -r "${p666_cube}/envars.sh" ]; then
