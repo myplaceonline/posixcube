@@ -278,6 +278,14 @@ Public APIs:
       Detect operating system and return one of the POSIXCUBE_OS_* values.
       Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
+  * cube_operating_system_version_major
+      Returns the major version of the operating system distribution.
+      Example: [ $(cube_operating_system_version_major) -gt 10 ] && ...
+
+  * cube_operating_system_version_minor
+      Returns the minor version of the operating system distribution.
+      Example: [ $(cube_operating_system_version_minor) -gt 10 ] && ...
+
   * cube_operating_system_has_flavor
       Check if the operating system flavor includes the flavor specified in $1
       by one of the POSIXCUBE_OS_FLAVOR_* values.
@@ -493,7 +501,6 @@ export POSIXCUBE_NEWLINE="
 export POSIXCUBE_CUBE_NAME=""
 export POSIXCUBE_CUBE_NAME_WITH_PREFIX=""
 
-export POSIXCUBE_OS_UNKNOWN=-1
 export POSIXCUBE_OS_LINUX=1
 export POSIXCUBE_OS_MAC_OSX=2
 export POSIXCUBE_OS_WINDOWS=3
@@ -502,6 +509,8 @@ export POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
 export POSIXCUBE_OS_FLAVOR_FEDORA=1
 export POSIXCUBE_OS_FLAVOR_DEBIAN=2
 export POSIXCUBE_OS_FLAVOR_UBUNTU=3
+export POSIXCUBE_OS_FLAVOR_RHEL=4
+export POSIXCUBE_OS_FLAVOR_CENTOS=5
 
 export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
@@ -818,12 +827,13 @@ cube_operating_system() {
       echo ${POSIXCUBE_OS_WINDOWS}
       ;;
     *)
-      echo ${POSIXCUBE_OS_UNKNOWN}
+      cube_throw "Unknown operating system $(uname -s)"
       ;;
   esac
 }
 
 # Check if the operating system flavor includes the flavor specified in $1 by one of the POSIXCUBE_OS_FLAVOR_* values.
+# Flavors are inherited. For example, checking for FEDORA on RHEL/CentOS, or DEBIAN on Ubuntu, will return true.
 #
 # Example:
 #   if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} ; then ...
@@ -834,25 +844,55 @@ cube_operating_system_has_flavor() {
   cube_check_numargs 1 "${@}"
   case "${1}" in
     ${POSIXCUBE_OS_FLAVOR_FEDORA})
-      if cube_file_exists "/etc/fedora-release"; then
+      if cube_file_exists "/etc/fedora-release" || cube_file_exists "/etc/redhat-release"; then
+        return 0
+      fi
+      ;;
+    ${POSIXCUBE_OS_FLAVOR_RHEL})
+      if cube_file_exists "/etc/redhat-release" && cube_file_contains /etc/redhat-release "Red Hat Enterprise"; then
+        return 0
+      fi
+      ;;
+    ${POSIXCUBE_OS_FLAVOR_CENTOS})
+      if cube_file_exists "/etc/redhat-release" && cube_file_contains /etc/redhat-release "CentOS"; then
         return 0
       fi
       ;;
     ${POSIXCUBE_OS_FLAVOR_UBUNTU})
-      if cube_file_exists "/etc/lsb-release"; then
+      if cube_file_exists "/etc/os-release" && cube_file_contains /etc/os-release "Ubuntu"; then
         return 0
       fi
       ;;
     ${POSIXCUBE_OS_FLAVOR_DEBIAN})
-      if cube_file_contains /etc/os-release "NAME=\"Debian" || cube_file_exists "/etc/lsb-release"; then
+      if cube_file_exists "/etc/debian_version"; then
         return 0
       fi
       ;;
     *)
-      cube_throw "Unknown flavor ${1}"
+      cube_throw "Unknown operating system flavor ${1}"
       ;;
   esac
   return 1
+}
+
+# Returns the major version of the operating system distribution.
+#
+# Example:
+#   if [ $(cube_operating_system_version_major) -gt 10 ]; then ...
+# Arguments: None
+cube_operating_system_version_major() {
+  grep VERSION_ID /etc/os-release | sed 's/VERSION_ID=//g' | sed 's/"//g' | sed 's/\..*//g'
+}
+
+# Returns the minor version of the operating system distribution.
+#
+# Example:
+#   if [ $(cube_operating_system_version_minor) -gt 10 ]; then ...
+# Arguments: None
+cube_operating_system_version_minor() {
+  cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN} && \
+    grep VERSION_ID /etc/os-release | sed 's/VERSION_ID=//g' | sed 's/"//g' | sed 's/.*\.0*//g'
+  cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} && echo "0"
 }
 
 # Detect current shell and return one of the CUBE_SHELL_* values.

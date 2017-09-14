@@ -268,6 +268,14 @@
           Detect operating system and return one of the POSIXCUBE_OS_* values.
           Example: [ $(cube_operating_system) -eq ${POSIXCUBE_OS_LINUX} ] && ...
 
+      * cube_operating_system_version_major
+          Returns the major version of the operating system distribution.
+          Example: [ $(cube_operating_system_version_major) -gt 10 ] && ...
+
+      * cube_operating_system_version_minor
+          Returns the minor version of the operating system distribution.
+          Example: [ $(cube_operating_system_version_minor) -gt 10 ] && ...
+
       * cube_operating_system_has_flavor
           Check if the operating system flavor includes the flavor specified in $1
           by one of the POSIXCUBE_OS_FLAVOR_* values.
