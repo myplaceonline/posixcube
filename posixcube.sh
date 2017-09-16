@@ -359,7 +359,7 @@ Public APIs:
       Example: cube_has_role "database_backup"
 
   * cube_file_contains
-      Check if the file $1 contains $2
+      Check if the file $1 contains $2. Uses grep with default arguments (e.g. regex).
       Example: cube_file_contains /etc/fstab nfsmount
 
   * cube_stdin_contains
@@ -881,7 +881,15 @@ cube_operating_system_has_flavor() {
 #   if [ $(cube_operating_system_version_major) -gt 10 ]; then ...
 # Arguments: None
 cube_operating_system_version_major() {
-  grep VERSION_ID /etc/os-release | sed 's/VERSION_ID=//g' | sed 's/"//g' | sed 's/\..*//g'
+  if cube_file_exists "/etc/centos-release"; then
+    sed 's/.*release \([0-9]\+\).*/\1/g' /etc/centos-release
+  elif cube_file_exists "/etc/redhat-release"; then
+    sed 's/.*release \([0-9]\+\).*/\1/g' /etc/redhat-release
+  elif cube_file_exists "/etc/os-release"; then
+    grep VERSION_ID /etc/os-release | sed 's/VERSION_ID=//g' | sed 's/"//g' | sed 's/\..*//g'
+  else
+    cube_throw "Not implemented. Please open an issue with OS details."
+  fi
 }
 
 # Returns the minor version of the operating system distribution.
@@ -890,9 +898,25 @@ cube_operating_system_version_major() {
 #   if [ $(cube_operating_system_version_minor) -gt 10 ]; then ...
 # Arguments: None
 cube_operating_system_version_minor() {
-  cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN} && \
+  if cube_file_exists "/etc/centos-release"; then
+    if cube_file_contains "/etc/centos-release" "\."; then
+      sed 's/.*release [0-9]\+\.\([0-9]\)\+.*/\1/g' /etc/centos-release
+    else
+      echo "0"
+    fi
+  elif cube_file_exists "/etc/redhat-release"; then
+    if cube_file_contains "/etc/redhat-release" "\."; then
+      sed 's/.*release [0-9]\+\.\([0-9]\)\+.*/\1/g' /etc/redhat-release
+    else
+      echo "0"
+    fi
+  elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN}; then
     grep VERSION_ID /etc/os-release | sed 's/VERSION_ID=//g' | sed 's/"//g' | sed 's/.*\.0*//g'
-  cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} && echo "0"
+  elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA}; then
+    echo "0"
+  else
+    cube_throw "Not implemented. Please open an issue with OS details."
+  fi
 }
 
 # Detect current shell and return one of the CUBE_SHELL_* values.
@@ -1492,7 +1516,7 @@ cube_has_role() {
   return 1
 }
 
-# Check if the file $1 contains $2
+# Check if the file $1 contains $2. Uses grep with default arguments (e.g. regex).
 #
 # Example:
 #   cube_file_contains /etc/fstab nfsmount
