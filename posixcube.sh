@@ -685,7 +685,7 @@ cube_throw() {
   if [ -r /proc/${cube_throw_pid}/cmdline ]; then
     while true
     do
-      cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline)
+      cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline | tr -d '\0')
       cube_throw_ppid=$(grep PPid /proc/${cube_throw_pid}/status | awk '{ print $2; }')
       cube_error_printf "  [pid] %5s ${cube_throw_cmdline}" ${cube_throw_pid}
       if [ "${cube_throw_pid}" = "1" ]; then # init
