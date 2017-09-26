@@ -504,6 +504,7 @@ export POSIXCUBE_CUBE_NAME_WITH_PREFIX=""
 export POSIXCUBE_OS_LINUX=1
 export POSIXCUBE_OS_MAC_OSX=2
 export POSIXCUBE_OS_WINDOWS=3
+export POSIXCUBE_OS_OPENBSD=4
 
 export POSIXCUBE_OS_FLAVOR_UNKNOWN=-1
 export POSIXCUBE_OS_FLAVOR_FEDORA=1
@@ -825,6 +826,9 @@ cube_operating_system() {
       ;;
     CYGWIN*|MINGW32*|MSYS*)
       echo ${POSIXCUBE_OS_WINDOWS}
+      ;;
+    OpenBSD)
+      echo ${POSIXCUBE_OS_OPENBSD}
       ;;
     *)
       cube_throw "Unknown operating system $(uname -s)"
