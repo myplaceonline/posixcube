@@ -1919,7 +1919,7 @@ _posixcube_complete() {
         for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
         do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
         done
-        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|grep -Fv '*')
+        sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|sort|uniq|grep -Fv '*')
       if printf "%s" "${cur}" | grep -lq @; then
         p666_autocomplete_user="$(printf "%s" "${cur}" | sed "s/\\(^.*\\)@.*$/\\1/g")"
         p666_host_list="$(printf "%s" "${p666_host_list}" | sed "s/^[ \t]*/${p666_autocomplete_user}@/g")"
@@ -1984,7 +1984,7 @@ HEREDOC
           for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
           do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
           done
-          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr '\n' ' '|grep -Fv '*')
+          sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|sort|uniq|grep -Fv '*'|tr '\n' ' ')
       fi
       
       p666_process_hostname_search=$(printf "%s" "${1}" | sed 's/\*/\.\*/g')
