@@ -12,7 +12,7 @@ p_show_usage() {
   fi
 
   cat <<'HEREDOC'
-usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
+usage: posixcube.sh -h HOST... [-l] [-c CUBE_DIR...] [OPTION]... COMMAND...
 
   A POSIX compliant, shell script-based server automation framework.
 
@@ -36,6 +36,8 @@ usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
             /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
   -i FILE   SSH `-i` option for identity file.
   -k        Keep the cube_exec.sh generated script.
+  -l        Local execution. Instead of (or in addition to) `-h HOST`s or a
+            sub-COMMAND, run the `-c` cubes or `COMMAND`s locally.
   -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
             to `-o ConnectTimeout=5`.
   -O P=V    Set the specified variable P with the value V. Option may be
@@ -1866,6 +1868,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p_ssh_t_option=""
   p_superuser=""
   p_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
+  p_local=0
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p_parallel=64
@@ -2011,7 +2014,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:StR" p_opt "${@}"; do
+    while getopts "?abc:de:F:h:i:klO:o:p:P:qr:RsStu:U:vw:yz:" p_opt "${@}"; do
       case "$p_opt" in
       \?)
         p_show_usage
@@ -2053,6 +2056,9 @@ HEREDOC
         ;;
       k)
         p_keep_exec=1
+        ;;
+      l)
+        p_local=1
         ;;
       o)
         if [ "${p_ssh_o_options}" = "${p_ssh_o_options_default}" ]; then
@@ -2167,8 +2173,8 @@ HEREDOC
   
   p_commands="${*}"
 
-  if [ "${p_hosts}" = "" ]; then
-    # If there are no hosts, check COMMANDs for sub-commands
+  if [ "${p_hosts}" = "" ] && [ ${p_local} -eq 0 ]; then
+    # If there are no hosts and it's not a local execution, check COMMANDs for sub-commands
     if [ "${p_commands}" != "" ]; then
       case "${1}" in
         edit|show|source)
@@ -2264,7 +2270,7 @@ HEREDOC
           ;;
       esac
     else
-      p_show_usage "No hosts specified with -h and no sub-COMMAND specified."
+      p_show_usage "Specify either target host(s) with -h, local execution with -l, or a sub-COMMAND."
     fi
   fi
   
@@ -2393,6 +2399,7 @@ HEREDOC
     }
 
     p_cubedir=${p_cubedir%/}
+    p_localcubedir=~/posixcubes
     
     p_script_name="$(cube_current_script_name)"
     p_script_path="$(cube_current_script_abs_path)"
@@ -2598,50 +2605,61 @@ HEREDOC
     p_async=1
     
     if [ ${p_skip_init} -eq 0 ]; then
-      [ ${p_quiet} -eq 0 ] && p_printf "Preparing hosts: ${p_hosts} ...\n"
     
-      p_wait_pids=""
-      for p_host in ${p_hosts}; do
-        if [ "${p_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
-          # Debian doesn't have rsync installed by default
-          p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p_superuser} apt-get -y install rsync); exit \${RC};"
-        else
-          p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}"
+      if [ "${p_hosts}" != "" ]; then
+        [ ${p_quiet} -eq 0 ] && p_printf "Preparing hosts: ${p_hosts} ...\n"
+      
+        p_wait_pids=""
+        for p_host in ${p_hosts}; do
+          if [ "${p_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+            # Debian doesn't have rsync installed by default
+            p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p_superuser} apt-get -y install rsync); exit \${RC};"
+          else
+            p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}"
+          fi
+        done
+        
+        if [ "${p_wait_pids}" != "" ]; then
+          [ ${p_debug} -eq 1 ] && p_printf "Waiting on initialization PIDs: ${p_wait_pids} ...\n"
+          
+          wait ${p_wait_pids}
+          p_host_output_result=$?
+          
+          p_handle_remote_response ${p_host_output_result} "" "Remote commands through SSH"
         fi
-      done
-      
-      if [ "${p_wait_pids}" != "" ]; then
-        [ ${p_debug} -eq 1 ] && p_printf "Waiting on initialization PIDs: ${p_wait_pids} ...\n"
         
-        wait ${p_wait_pids}
-        p_host_output_result=$?
-        
-        p_handle_remote_response ${p_host_output_result} "" "Remote commands through SSH"
-      fi
-      
-      [ ${p_quiet} -eq 0 ] && p_printf "Completed preparation.\n"
+        [ ${p_quiet} -eq 0 ] && p_printf "Completed preparation.\n"
 
-      [ ${p_quiet} -eq 0 ] && p_printf "Transferring files to hosts: ${p_hosts} ...\n"
-      
-      p_wait_pids=""
-      for p_host in ${p_hosts}; do
-        if [ ${p_skip_init} -eq 0 ]; then
+        [ ${p_quiet} -eq 0 ] && p_printf "Transferring files to hosts: ${p_hosts} ...\n"
+        
+        p_wait_pids=""
+        for p_host in ${p_hosts}; do
           p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_script_path} ${p_envar_scripts}" "${p_cubedir}/"
-        else
-          p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_envar_scripts}" "${p_cubedir}/"
+        done
+        
+        if [ "${p_wait_pids}" != "" ]; then
+          [ ${p_debug} -eq 1 ] && p_printf "Waiting on transfer PIDs: ${p_wait_pids} ...\n"
+          
+          wait ${p_wait_pids}
+          p_host_output_result=$?
+          
+          p_handle_remote_response ${p_host_output_result} "" "${p_transfer_command}"
         fi
-      done
-      
-      if [ "${p_wait_pids}" != "" ]; then
-        [ ${p_debug} -eq 1 ] && p_printf "Waiting on transfer PIDs: ${p_wait_pids} ...\n"
-        
-        wait ${p_wait_pids}
-        p_host_output_result=$?
-        
-        p_handle_remote_response ${p_host_output_result} "" "${p_transfer_command}"
+
+        [ ${p_quiet} -eq 0 ] && p_printf "Completed transfers.\n"
       fi
 
-      [ ${p_quiet} -eq 0 ] && p_printf "Completed transfers.\n"
+      if [ ${p_local} -eq 1 ]; then
+        if [ ! -d "${p_localcubedir}" ]; then
+          mkdir -p "${p_localcubedir}" || cube_check_return
+        fi
+        
+        [ ${p_debug} -eq 1 ] && p_printf "Preparing local execution ...\n"
+        
+        cp -aLfuR ${p_upload} ${p_script_path} ${p_envar_scripts} ${p_localcubedir}/ || cube_check_return
+        
+        [ ${p_debug} -eq 1 ] && p_printf "Completed local preparation.\n"
+      fi
     fi
     
     p_wait_pids=""
@@ -2659,6 +2677,12 @@ HEREDOC
       
       p_remote_ssh "${p_host}" "${p_user}" ". ${p_cubedir}/${p_script}"
     done
+    
+    if [ ${p_local} -eq 1 ]; then
+      cube_echo "Executing locally ..."
+      
+      . ${p_localcubedir}/${p_script}
+    fi
 
     if [ "${p_wait_pids}" != "" ]; then
       [ ${p_debug} -eq 1 ] && p_printf "Waiting on cube execution PIDs: ${p_wait_pids} ...\n"

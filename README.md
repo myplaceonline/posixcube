@@ -2,7 +2,7 @@
 
 ## Usage
 
-    usage: posixcube.sh -h HOST... [-c CUBE_DIR...] [OPTION]... COMMAND...
+    usage: posixcube.sh -h HOST... [-l] [-c CUBE_DIR...] [OPTION]... COMMAND...
 
       A POSIX compliant, shell script-based server automation framework.
 
@@ -26,6 +26,8 @@
                 /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts, and /etc/hosts.
       -i FILE   SSH `-i` option for identity file.
       -k        Keep the cube_exec.sh generated script.
+      -l        Local execution. Instead of (or in addition to) `-h HOST`s or a
+                sub-COMMAND, run the `-c` cubes or `COMMAND`s locally.
       -o K=V    SSH `-o` option. Option may be specified multiple times. Defaults
                 to `-o ConnectTimeout=5`.
       -O P=V    Set the specified variable P with the value V. Option may be
@@ -349,7 +351,7 @@
           Example: cube_has_role "database_backup"
 
       * cube_file_contains
-          Check if the file $1 contains $2
+          Check if the file $1 contains $2. Uses grep with default arguments (e.g. regex).
           Example: cube_file_contains /etc/fstab nfsmount
 
       * cube_stdin_contains
