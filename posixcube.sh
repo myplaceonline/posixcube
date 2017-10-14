@@ -6,9 +6,9 @@ POSIXCUBE_VERSION=0.2.0
 
 # On why we don't use `set -e` or `set -u`, see the Philosophy section, #2.
 
-p666_show_usage() {
+p_show_usage() {
   if [ ${#} -ne 0 ]; then
-    p666_printf_error "${@}"
+    p_printf_error "${@}"
   fi
 
   cat <<'HEREDOC'
@@ -443,7 +443,7 @@ Source: https://github.com/myplaceonline/posixcube
 HEREDOC
 
   if [ $# -ne 0 ]; then
-    p666_printf_error "${@}"
+    p_printf_error "${@}"
   fi
 
   if [ "${POSIXCUBE_SOURCED}" = "" ]; then
@@ -686,6 +686,7 @@ cube_throw() {
   if [ -r /proc/${cube_throw_pid}/cmdline ]; then
     while true
     do
+      # shellcheck disable=SC2002
       cube_throw_cmdline=$(cat /proc/${cube_throw_pid}/cmdline | tr -d '\0')
       cube_throw_ppid=$(grep PPid /proc/${cube_throw_pid}/status | awk '{ print $2; }')
       cube_error_printf "  [pid] %5s ${cube_throw_cmdline}" ${cube_throw_pid}
@@ -1836,87 +1837,87 @@ cubevar_api_roles=""
 
 # If we're being sourced on the remote machine, then we don't want to run any of the below
 if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
-  p666_debug=0
-  p666_quiet=0
-  p666_skip_init=0
-  p666_keep_exec=0
-  p666_skip_host_errors=0
-  p666_hosts=""
-  p666_cubes=""
-  p666_include_cubes=""
-  p666_envar_scripts=""
-  p666_envar_scripts_specified=0
-  p666_envar_scripts_password=""
-  p666_user="${USER}"
+  p_debug=0
+  p_quiet=0
+  p_skip_init=0
+  p_keep_exec=0
+  p_skip_host_errors=0
+  p_hosts=""
+  p_cubes=""
+  p_include_cubes=""
+  p_envar_scripts=""
+  p_envar_scripts_specified=0
+  p_envar_scripts_password=""
+  p_user="${USER}"
   # shellcheck disable=SC2088
-  p666_cubedir="~/posixcubes/"
-  p666_roles=""
-  p666_options=""
-  p666_specfile="./cubespecs.ini"
-  p666_parallel=0
-  p666_async_cubes=0
-  p666_default_envars="envars*sh envars*sh.enc"
-  p666_ssh_o_options_default="ConnectTimeout=5"
-  p666_ssh_o_options="${p666_ssh_o_options_default}"
-  p666_ssh_i_option=""
-  p666_ssh_F_option=""
-  p666_ssh_p_option=""
+  p_cubedir="~/posixcubes/"
+  p_roles=""
+  p_options=""
+  p_specfile="./cubespecs.ini"
+  p_parallel=0
+  p_async_cubes=0
+  p_default_envars="envars*sh envars*sh.enc"
+  p_ssh_o_options_default="ConnectTimeout=5"
+  p_ssh_o_options="${p_ssh_o_options_default}"
+  p_ssh_i_option=""
+  p_ssh_F_option=""
+  p_ssh_p_option=""
   # http://serverfault.com/a/593419/259410
-  p666_ssh_t_option=""
-  p666_superuser=""
-  p666_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
+  p_ssh_t_option=""
+  p_superuser=""
+  p_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
-    p666_parallel=64
+    p_parallel=64
   fi
 
-  p666_show_version() {
-    p666_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
+  p_show_version() {
+    p_printf "posixcube.sh version ${POSIXCUBE_VERSION}\n"
   }
 
-  p666_printf() {
-    p666_printf_str=$1; shift
+  p_printf() {
+    p_printf_str=$1; shift
     # shellcheck disable=SC2059
-    printf "[$(date)] ${p666_printf_str}" "${@}"
+    printf "[$(date)] ${p_printf_str}" "${@}"
   }
 
-  p666_printf_error() {
-    p666_printf_str=$1; shift
+  p_printf_error() {
+    p_printf_str=$1; shift
     # shellcheck disable=SC2059
-    printf "\n[$(date)] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p666_printf_str}\n\n" "${@}" 1>&2
+    printf "\n[$(date)] ${POSIXCUBE_COLOR_RED}Error${POSIXCUBE_COLOR_RESET}: ${p_printf_str}\n\n" "${@}" 1>&2
   }
   
-  p666_exit() {
-    for p666_envar_script in ${p666_envar_scripts}; do
-      p666_envar_script_enc_matches=$(expr ${p666_envar_script} : '.*\.dec$')
-      if [ "${p666_envar_script_enc_matches}" -ne 0 ]; then
+  p_exit() {
+    for p_envar_script in ${p_envar_scripts}; do
+      p_envar_script_enc_matches=$(expr ${p_envar_script} : '.*\.dec$')
+      if [ "${p_envar_script_enc_matches}" -ne 0 ]; then
         # If multiple posixcube.sh executions run at the same time, then one of them might
         # delete the decryption file, but that's okay
-        rm "${p666_envar_script}" 2>/dev/null
+        rm "${p_envar_script}" 2>/dev/null
       fi
     done
 
-    [ ${p666_keep_exec} -eq 0 ] && rm -f "${p666_script}" 2>/dev/null
+    [ ${p_keep_exec} -eq 0 ] && rm -f "${p_script}" 2>/dev/null
     
     exit "${1}"
   }
 
-  p666_install() {
-    p666_func_result=0
+  p_install() {
+    p_func_result=0
     if [ -d "/etc/bash_completion.d/" ]; then
-      p666_autocomplete_file=/etc/bash_completion.d/posixcube_completion.sh
+      p_autocomplete_file=/etc/bash_completion.d/posixcube_completion.sh
       
       # Autocomplete Hostnames for SSH etc.
       # by Jean-Sebastien Morisset (http://surniaulula.com/)
       
-      cat <<'HEREDOC' | tee ${p666_autocomplete_file} > /dev/null
+      cat <<'HEREDOC' | tee ${p_autocomplete_file} > /dev/null
 _posixcube_complete() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   case "${prev}" in
     \-h)
-      p666_host_list=$({
+      p_host_list=$({
         for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
         do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
         done
@@ -1925,14 +1926,14 @@ _posixcube_complete() {
         done
         sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|tr ' ' '\n'|sort|uniq|grep -Fv '*')
       if printf "%s" "${cur}" | grep -lq @; then
-        p666_autocomplete_user="$(printf "%s" "${cur}" | sed "s/\\(^.*\\)@.*$/\\1/g")"
-        p666_host_list="$(printf "%s" "${p666_host_list}" | sed "s/^[ \t]*/${p666_autocomplete_user}@/g")"
+        p_autocomplete_user="$(printf "%s" "${cur}" | sed "s/\\(^.*\\)@.*$/\\1/g")"
+        p_host_list="$(printf "%s" "${p_host_list}" | sed "s/^[ \t]*/${p_autocomplete_user}@/g")"
       fi
-      COMPREPLY=($(compgen -W "${p666_host_list}" -- $cur))
+      COMPREPLY=($(compgen -W "${p_host_list}" -- $cur))
       ;;
     \-z)
-      p666_complete_specs="$(sed 's/=.*//g' cubespecs.ini)"
-      COMPREPLY=($(compgen -W "${p666_complete_specs}" -- $cur))
+      p_complete_specs="$(sed 's/=.*//g' cubespecs.ini)"
+      COMPREPLY=($(compgen -W "${p_complete_specs}" -- $cur))
       ;;
     *)
       ;;
@@ -1944,44 +1945,44 @@ _posixcube_complete() {
 complete -o default -F _posixcube_complete posixcube.sh
 HEREDOC
 
-      p666_func_result=$?
-      if [ ${p666_func_result} -eq 0 ]; then
-        chmod +x ${p666_autocomplete_file}
-        p666_func_result=$?
-        if [ ${p666_func_result} -eq 0 ]; then
+      p_func_result=$?
+      if [ ${p_func_result} -eq 0 ]; then
+        chmod +x ${p_autocomplete_file}
+        p_func_result=$?
+        if [ ${p_func_result} -eq 0 ]; then
           # shellcheck disable=SC1090
-          . ${p666_autocomplete_file}
-          p666_func_result=$?
-          if [ ${p666_func_result} -eq 0 ]; then
-            p666_printf "Installed Bash programmable completion script into ${p666_autocomplete_file}\n"
+          . ${p_autocomplete_file}
+          p_func_result=$?
+          if [ ${p_func_result} -eq 0 ]; then
+            p_printf "Installed Bash programmable completion script into ${p_autocomplete_file}\n"
           else
-            p666_printf "Could not execute ${p666_autocomplete_file}\n"
+            p_printf "Could not execute ${p_autocomplete_file}\n"
           fi
         else
-          p666_printf "Could not chmod +x ${p666_autocomplete_file}\n"
+          p_printf "Could not chmod +x ${p_autocomplete_file}\n"
         fi
       else
-        p666_printf "Could not create ${p666_autocomplete_file}\n"
-        p666_printf "You may need to try with sudo. For example:\n"
-        p666_printf "  sudo $(cube_current_script_abs_path) -b && . ${p666_autocomplete_file}\n"
-        p666_printf "You only need to source the command the first time. Subsequent shells will automatically source it.\n"
+        p_printf "Could not create ${p_autocomplete_file}\n"
+        p_printf "You may need to try with sudo. For example:\n"
+        p_printf "  sudo $(cube_current_script_abs_path) -b && . ${p_autocomplete_file}\n"
+        p_printf "You only need to source the command the first time. Subsequent shells will automatically source it.\n"
       fi
     else
-      p666_printf "No directory /etc/bash_completion.d/ found, skipping Bash programmable completion installation.\n"
+      p_printf "No directory /etc/bash_completion.d/ found, skipping Bash programmable completion installation.\n"
     fi
-    exit ${p666_func_result}
+    exit ${p_func_result}
   }
 
-  p666_all_hosts=""
+  p_all_hosts=""
 
-  p666_process_hostname() {
-    p666_hostname_wildcard=$(expr "${1}" : '.*\*.*')
-    if [ "${p666_hostname_wildcard}" -ne 0 ]; then
+  p_process_hostname() {
+    p_hostname_wildcard=$(expr "${1}" : '.*\*.*')
+    if [ "${p_hostname_wildcard}" -ne 0 ]; then
     
       # Use or create cache of hosts
-      if [ "${p666_all_hosts}" = "" ]; then
+      if [ "${p_all_hosts}" = "" ]; then
         # shellcheck disable=SC2063
-        p666_all_hosts=$({ 
+        p_all_hosts=$({ 
           for c in /etc/ssh_config /etc/ssh/ssh_config ~/.ssh/config
           do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
           done
@@ -1991,145 +1992,145 @@ HEREDOC
           sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|sort|uniq|grep -Fv '*'|tr '\n' ' ')
       fi
       
-      p666_process_hostname_search=$(printf "%s" "${1}" | sed 's/\*/\.\*/g')
+      p_process_hostname_search=$(printf "%s" "${1}" | sed 's/\*/\.\*/g')
       
-      p666_process_hostname_list=""
-      for p666_all_host in ${p666_all_hosts}; do
-        p666_all_host_match=$(expr "${p666_all_host}" : "${p666_process_hostname_search}")
-        if [ "${p666_all_host_match}" -ne 0 ]; then
-          p666_process_hostname_list=$(cube_append_str "${p666_process_hostname_list}" "${p666_all_host}")
+      p_process_hostname_list=""
+      for p_all_host in ${p_all_hosts}; do
+        p_all_host_match=$(expr "${p_all_host}" : "${p_process_hostname_search}")
+        if [ "${p_all_host_match}" -ne 0 ]; then
+          p_process_hostname_list=$(cube_append_str "${p_process_hostname_list}" "${p_all_host}")
         fi
       done
-      echo "${p666_process_hostname_list}"
+      echo "${p_process_hostname_list}"
     else
       echo "${1}"
     fi
   }
   
-  p666_process_options() {
+  p_process_options() {
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:StR" p666_opt "${@}"; do
-      case "$p666_opt" in
+    while getopts "?vdqbskyah:u:c:e:P:w:r:O:z:U:o:i:F:p:StR" p_opt "${@}"; do
+      case "$p_opt" in
       \?)
-        p666_show_usage
+        p_show_usage
         ;;
       a)
-        p666_async_cubes=1
+        p_async_cubes=1
         ;;
       b)
-        p666_install
+        p_install
         ;;
       c)
-        p666_cubes=$(cube_append_str "${p666_cubes}" "${OPTARG}")
+        p_cubes=$(cube_append_str "${p_cubes}" "${OPTARG}")
         ;;
       d)
-        p666_debug=1
+        p_debug=1
         ;;
       e)
-        p666_envar_scripts_specified=1
+        p_envar_scripts_specified=1
         if [ "${OPTARG}" != "" ] && [ ! -r "${OPTARG}" ]; then
-          p666_printf_error "Could not find ${OPTARG} ENVAR script."
+          p_printf_error "Could not find ${OPTARG} ENVAR script."
           exit 1
         fi
-        p666_envar_scripts=$(cube_append_str "${p666_envar_scripts}" "${OPTARG}")
+        p_envar_scripts=$(cube_append_str "${p_envar_scripts}" "${OPTARG}")
         ;;
       F)
-        p666_ssh_F_option="-F ${OPTARG}"
+        p_ssh_F_option="-F ${OPTARG}"
         ;;
       h)
-        p666_processed_hostname=$(p666_process_hostname "${OPTARG}")
-        if [ "${p666_processed_hostname}" != "" ]; then
-          p666_hosts=$(cube_append_str "${p666_hosts}" "${p666_processed_hostname}")
+        p_processed_hostname=$(p_process_hostname "${OPTARG}")
+        if [ "${p_processed_hostname}" != "" ]; then
+          p_hosts=$(cube_append_str "${p_hosts}" "${p_processed_hostname}")
         else
-          p666_printf_error "No known hosts match ${OPTARG} from ${p666_all_hosts}"
+          p_printf_error "No known hosts match ${OPTARG} from ${p_all_hosts}"
           exit 1
         fi
         ;;
       i)
-        p666_ssh_i_option="-i ${OPTARG}"
+        p_ssh_i_option="-i ${OPTARG}"
         ;;
       k)
-        p666_keep_exec=1
+        p_keep_exec=1
         ;;
       o)
-        if [ "${p666_ssh_o_options}" = "${p666_ssh_o_options_default}" ]; then
-          p666_ssh_o_options=""
+        if [ "${p_ssh_o_options}" = "${p_ssh_o_options_default}" ]; then
+          p_ssh_o_options=""
         fi
-        p666_ssh_o_options=$(cube_append_str "${p666_ssh_o_options}" "${OPTARG}")
+        p_ssh_o_options=$(cube_append_str "${p_ssh_o_options}" "${OPTARG}")
         ;;
       O)
         # Break up into name and value
-        p666_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
-        p666_option_value=$(echo "${OPTARG}" | sed "s/^${p666_option_name}=//")
-        p666_option_value=$(p666_process_hostname "${p666_option_value}")
-        p666_options=$(cube_append_str "${p666_options}" "${p666_option_name}=\"${p666_option_value}\"" "${POSIXCUBE_NEWLINE}")
+        p_option_name=$(echo "${OPTARG}" | sed 's/=.*//')
+        p_option_value=$(echo "${OPTARG}" | sed "s/^${p_option_name}=//")
+        p_option_value=$(p_process_hostname "${p_option_value}")
+        p_options=$(cube_append_str "${p_options}" "${p_option_name}=\"${p_option_value}\"" "${POSIXCUBE_NEWLINE}")
         ;;
       p)
-        p666_ssh_p_option="-p ${OPTARG}"
+        p_ssh_p_option="-p ${OPTARG}"
         ;;
       P)
-        p666_envar_scripts_password="${OPTARG}"
+        p_envar_scripts_password="${OPTARG}"
         ;;
       q)
-        p666_quiet=1
+        p_quiet=1
         ;;
       r)
-        p666_roles=$(cube_append_str "${p666_roles}" "${OPTARG}")
+        p_roles=$(cube_append_str "${p_roles}" "${OPTARG}")
         ;;
       R)
-        p666_transfer_command="${POSIXCUBE_TRANSFER_RSYNC}"
+        p_transfer_command="${POSIXCUBE_TRANSFER_RSYNC}"
         ;;
       s)
-        p666_skip_init=1
+        p_skip_init=1
         ;;
       S)
-        p666_superuser="sudo"
+        p_superuser="sudo"
         ;;
       t)
-        p666_ssh_t_option="-t"
+        p_ssh_t_option="-t"
         ;;
       u)
-        p666_user="${OPTARG}"
+        p_user="${OPTARG}"
         ;;
       U)
-        p666_include_cubes=$(cube_append_str "${p666_include_cubes}" "${OPTARG}")
+        p_include_cubes=$(cube_append_str "${p_include_cubes}" "${OPTARG}")
         ;;
       v)
-        p666_show_version
+        p_show_version
         exit 1
         ;;
       w)
-        p666_envar_scripts_password="$(cat "${OPTARG}")" || cube_check_return
+        p_envar_scripts_password="$(cat "${OPTARG}")" || cube_check_return
         ;;
       y)
-        p666_skip_host_errors=1
+        p_skip_host_errors=1
         ;;
       z)
-        if [ -r "${p666_specfile}" ]; then
-          p666_foundspec=0
+        if [ -r "${p_specfile}" ]; then
+          p_foundspec=0
           
-          p666_foundspec_names=""
+          p_foundspec_names=""
           
-          while read -r p666_specfile_line; do
-            p666_specfile_line_name=$(echo "${p666_specfile_line}" | sed 's/=.*//')
-            p666_foundspec_names=$(cube_append_str "${p666_foundspec_names}" "${p666_specfile_line_name}")
-            if [ "${p666_specfile_line_name}" = "${OPTARG}" ]; then
-              p666_foundspec=1
-              p666_specfile_line_value=$(echo "${p666_specfile_line}" | sed "s/^${p666_specfile_line_name}=//")
+          while read -r p_specfile_line; do
+            p_specfile_line_name=$(echo "${p_specfile_line}" | sed 's/=.*//')
+            p_foundspec_names=$(cube_append_str "${p_foundspec_names}" "${p_specfile_line_name}")
+            if [ "${p_specfile_line_name}" = "${OPTARG}" ]; then
+              p_foundspec=1
+              p_specfile_line_value=$(echo "${p_specfile_line}" | sed "s/^${p_specfile_line_name}=//")
               # shellcheck disable=SC2086
-              p666_process_options ${p666_specfile_line_value}
+              p_process_options ${p_specfile_line_value}
               break
             fi
-          done < "${p666_specfile}"
+          done < "${p_specfile}"
           
-          if [ ${p666_foundspec} -eq 0 ]; then
-            p666_printf_error "Could not find ${OPTARG} in ${p666_specfile} file with specs ${p666_foundspec_names}"
+          if [ ${p_foundspec} -eq 0 ]; then
+            p_printf_error "Could not find ${OPTARG} in ${p_specfile} file with specs ${p_foundspec_names}"
             exit 1
           fi
         else
-          p666_printf_error "Could not find ${p666_specfile} file"
+          p_printf_error "Could not find ${p_specfile} file"
           exit 1
         fi
         ;;
@@ -2137,102 +2138,102 @@ HEREDOC
     done
   }
 
-  p666_process_options "${@}"
+  p_process_options "${@}"
   
   shift $((OPTIND-1))
 
   [ "$1" = "--" ] && shift
   
   # If no password specified, check for the ~/.posixcube.pwd file
-  if [ "${p666_envar_scripts_password}" = "" ] && [ -r ~/.posixcube.pwd ]; then
-    p666_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
+  if [ "${p_envar_scripts_password}" = "" ] && [ -r ~/.posixcube.pwd ]; then
+    p_envar_scripts_password="$(cat ~/.posixcube.pwd)" || cube_check_return
   fi
 
-  if [ ${p666_envar_scripts_specified} -eq 0 ] && [ "${p666_envar_scripts}" = "" ]; then
+  if [ ${p_envar_scripts_specified} -eq 0 ] && [ "${p_envar_scripts}" = "" ]; then
     # shellcheck disable=SC2012
     # shellcheck disable=SC2086
-    p666_envar_scripts="$(ls -1 ${p666_default_envars} 2>/dev/null | paste -sd ' ' -)"
+    p_envar_scripts="$(ls -1 ${p_default_envars} 2>/dev/null | paste -sd ' ' -)"
   fi
   
-  if [ "${p666_envar_scripts}" != "" ]; then
-    [ ${p666_debug} -eq 1 ] && p666_printf "Using ENVAR files: ${p666_envar_scripts}\n"
+  if [ "${p_envar_scripts}" != "" ]; then
+    [ ${p_debug} -eq 1 ] && p_printf "Using ENVAR files: ${p_envar_scripts}\n"
   fi
   
   # Convert ssh -o options to final form
-  p666_ssh_o_options_exec=""
-  for p666_ssh_o_option in ${p666_ssh_o_options}; do
-    p666_ssh_o_options_exec=$(cube_append_str "${p666_ssh_o_options_exec}" "-o ${p666_ssh_o_option}")
+  p_ssh_o_options_exec=""
+  for p_ssh_o_option in ${p_ssh_o_options}; do
+    p_ssh_o_options_exec=$(cube_append_str "${p_ssh_o_options_exec}" "-o ${p_ssh_o_option}")
   done
   
-  p666_commands="${*}"
+  p_commands="${*}"
 
-  if [ "${p666_hosts}" = "" ]; then
+  if [ "${p_hosts}" = "" ]; then
     # If there are no hosts, check COMMANDs for sub-commands
-    if [ "${p666_commands}" != "" ]; then
+    if [ "${p_commands}" != "" ]; then
       case "${1}" in
         edit|show|source)
-          if [ "${p666_envar_scripts}" != "" ]; then
-            for p666_envar_script in ${p666_envar_scripts}; do
-              p666_envar_scripts_enc=$(expr "${p666_envar_script}" : '.*enc$')
-              if [ "${p666_envar_scripts_enc}" -ne 0 ]; then
+          if [ "${p_envar_scripts}" != "" ]; then
+            for p_envar_script in ${p_envar_scripts}; do
+              p_envar_scripts_enc=$(expr "${p_envar_script}" : '.*enc$')
+              if [ "${p_envar_scripts_enc}" -ne 0 ]; then
                 if cube_command_exists gpg ; then
-                  p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
+                  p_envar_script_new=$(echo "${p_envar_script}" | sed 's/enc$/dec/g')
                   
-                  if [ "${p666_envar_scripts_password}" = "" ]; then
-                    p666_printf "Enter the password for ${p666_envar_script}:\n"
-                    gpg --output "${p666_envar_script_new}" --yes --decrypt "${p666_envar_script}" || cube_check_return
+                  if [ "${p_envar_scripts_password}" = "" ]; then
+                    p_printf "Enter the password for ${p_envar_script}:\n"
+                    gpg --output "${p_envar_script_new}" --yes --decrypt "${p_envar_script}" || cube_check_return
                   else
-                    [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script} ...\n"
-                    p666_gpg_output="$(echo "${p666_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p666_envar_script_new}" --decrypt "${p666_envar_script}" 2>&1)" || cube_check_return "${p666_gpg_output}"
+                    [ ${p_debug} -eq 1 ] && p_printf "Decrypting ${p_envar_script} ...\n"
+                    p_gpg_output="$(echo "${p_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p_envar_script_new}" --decrypt "${p_envar_script}" 2>&1)" || cube_check_return "${p_gpg_output}"
                   fi
                   
                   case "${1}" in
                     show)
-                      p666_printf "Contents of ${p666_envar_script}:\n"
-                      sed 's/\\\$/$/g' "${p666_envar_script_new}"
+                      p_printf "Contents of ${p_envar_script}:\n"
+                      sed 's/\\\$/$/g' "${p_envar_script_new}"
                       ;;
                     source)
-                      chmod u+x "${p666_envar_script_new}"
+                      chmod u+x "${p_envar_script_new}"
                       # shellcheck disable=SC1090
-                      . "$(cube_readlink "${p666_envar_script_new}")"
-                      [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
+                      . "$(cube_readlink "${p_envar_script_new}")"
+                      [ ${p_debug} -eq 1 ] && p_printf "Sourced ${p_envar_script}...\n"
                       ;;
                     edit)
-                      "${EDITOR:-vi}" "${p666_envar_script_new}" || cube_check_return
+                      "${EDITOR:-vi}" "${p_envar_script_new}" || cube_check_return
                       
-                      if [ "${p666_envar_scripts_password}" = "" ]; then
-                        p666_printf "Enter the password to re-encrypt ${p666_envar_script}:\n"
-                        gpg --yes --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p666_envar_script}" --symmetric "${p666_envar_script_new}" || cube_check_return
+                      if [ "${p_envar_scripts_password}" = "" ]; then
+                        p_printf "Enter the password to re-encrypt ${p_envar_script}:\n"
+                        gpg --yes --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p_envar_script}" --symmetric "${p_envar_script_new}" || cube_check_return
                       else
-                        [ ${p666_debug} -eq 1 ] && p666_printf "Re-encrypting ${p666_envar_script} ...\n"
+                        [ ${p_debug} -eq 1 ] && p_printf "Re-encrypting ${p_envar_script} ...\n"
                         
-                        p666_gpg_output="$(echo "${p666_envar_scripts_password}" | gpg --batch --passphrase-fd 0 --yes --no-use-agent --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p666_envar_script}" --symmetric "${p666_envar_script_new}" 2>&1)" || cube_check_return "${p666_gpg_output}"
+                        p_gpg_output="$(echo "${p_envar_scripts_password}" | gpg --batch --passphrase-fd 0 --yes --no-use-agent --s2k-mode 3 --s2k-count 65536 --force-mdc --cipher-algo AES256 --s2k-digest-algo SHA512 -o "${p_envar_script}" --symmetric "${p_envar_script_new}" 2>&1)" || cube_check_return "${p_gpg_output}"
                       fi
                       ;;
                     *)
-                      p666_show_usage "${1} Not implemented (encrypted case)"
+                      p_show_usage "${1} Not implemented (encrypted case)"
                       ;;
                   esac
                   
-                  rm -f "${p666_envar_script_new}" || cube_check_return
+                  rm -f "${p_envar_script_new}" || cube_check_return
                 else
-                  p666_show_usage "gpg program not found on the PATH"
+                  p_show_usage "gpg program not found on the PATH"
                 fi
               else
                 case "${1}" in
                   show)
-                    grep -v "^#!/bin/sh$" "${p666_envar_script}" | sed 's/\\\$/$/g'
+                    grep -v "^#!/bin/sh$" "${p_envar_script}" | sed 's/\\\$/$/g'
                     ;;
                   source)
                     # shellcheck disable=SC1090
-                    . "$(cube_readlink "${p666_envar_script}")"
-                    [ ${p666_debug} -eq 1 ] && p666_printf "Sourced ${p666_envar_script}...\n"
+                    . "$(cube_readlink "${p_envar_script}")"
+                    [ ${p_debug} -eq 1 ] && p_printf "Sourced ${p_envar_script}...\n"
                     ;;
                   edit)
                     # We assume the user will edit a non-encrypted file on their own
                     ;;
                   *)
-                    p666_show_usage "${1} Not implemented (non-encrypted case)"
+                    p_show_usage "${1} Not implemented (non-encrypted case)"
                     ;;
                 esac
               fi
@@ -2247,7 +2248,7 @@ HEREDOC
                 ;;
             esac
           else
-            p666_show_usage "Sub-COMMAND without -e ENVAR file and ${p666_default_envars} not found."
+            p_show_usage "Sub-COMMAND without -e ENVAR file and ${p_default_envars} not found."
           fi
           case "${1}" in
             source)
@@ -2259,416 +2260,416 @@ HEREDOC
           esac
           ;;
         *)
-          p666_show_usage "Unknown sub-COMMAND ${1}"
+          p_show_usage "Unknown sub-COMMAND ${1}"
           ;;
       esac
     else
-      p666_show_usage "No hosts specified with -h and no sub-COMMAND specified."
+      p_show_usage "No hosts specified with -h and no sub-COMMAND specified."
     fi
   fi
   
   if [ "${POSIXCUBE_SOURCED}" = "" ]; then
-    if [ "${p666_commands}" = "" ] && [ "${p666_cubes}" = "" ]; then
-      p666_show_usage "No COMMANDs or CUBEs specified."
+    if [ "${p_commands}" = "" ] && [ "${p_cubes}" = "" ]; then
+      p_show_usage "No COMMANDs or CUBEs specified."
     fi
 
-    [ ${p666_debug} -eq 1 ] && p666_show_version
+    [ ${p_debug} -eq 1 ] && p_show_version
     
-    p666_handle_remote_response() {
-      p666_handle_remote_response_result=${1}; shift
-      p666_handle_remote_response_host="${1}"; shift
-      p666_handle_remote_response_context="${1}"; shift
+    p_handle_remote_response() {
+      p_handle_remote_response_result=${1}; shift
+      p_handle_remote_response_host="${1}"; shift
+      p_handle_remote_response_context="${1}"; shift
       
-      if [ "${p666_handle_remote_response_context}" = "" ]; then
-        p666_handle_remote_response_context="Last command"
+      if [ "${p_handle_remote_response_context}" = "" ]; then
+        p_handle_remote_response_context="Last command"
       fi
 
-      if cube_string_contains "${p666_handle_remote_response_host}" "@"; then
-        p666_handle_remote_response_host="$(cube_string_substring_after "${p666_handle_remote_response_host}" "@")"
+      if cube_string_contains "${p_handle_remote_response_host}" "@"; then
+        p_handle_remote_response_host="$(cube_string_substring_after "${p_handle_remote_response_host}" "@")"
       fi
 
-      p666_host_output_color=${POSIXCUBE_COLOR_GREEN}
-      p666_host_output=""
-      if [ "${p666_handle_remote_response_result}" -ne 0 ]; then
-        p666_host_output_color=${POSIXCUBE_COLOR_RED}
-        p666_host_output="${p666_handle_remote_response_context} failed with return code ${p666_handle_remote_response_result}"
+      p_host_output_color=${POSIXCUBE_COLOR_GREEN}
+      p_host_output=""
+      if [ "${p_handle_remote_response_result}" -ne 0 ]; then
+        p_host_output_color=${POSIXCUBE_COLOR_RED}
+        p_host_output="${p_handle_remote_response_context} failed with return code ${p_handle_remote_response_result}"
       else
-        [ ${p666_debug} -eq 1 ] && p666_host_output="Commands succeeded."
+        [ ${p_debug} -eq 1 ] && p_host_output="Commands succeeded."
       fi
       
-      if [ "${p666_host_output}" != "" ]; then
-        if [ "${p666_handle_remote_response_host}" != "" ]; then
-          p666_printf "[${p666_host_output_color}${p666_handle_remote_response_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
+      if [ "${p_host_output}" != "" ]; then
+        if [ "${p_handle_remote_response_host}" != "" ]; then
+          p_printf "[${p_host_output_color}${p_handle_remote_response_host}${POSIXCUBE_COLOR_RESET}] %s\n" "${p_host_output}"
         else
-          if [ "${p666_host_output_color}" = "${POSIXCUBE_COLOR_RED}" ]; then
-            p666_printf "[${p666_host_output_color}Error${POSIXCUBE_COLOR_RESET}] %s\n" "${p666_host_output}"
+          if [ "${p_host_output_color}" = "${POSIXCUBE_COLOR_RED}" ]; then
+            p_printf "[${p_host_output_color}Error${POSIXCUBE_COLOR_RESET}] %s\n" "${p_host_output}"
           else
-            p666_printf "%s\n" "${p666_host_output}"
+            p_printf "%s\n" "${p_host_output}"
           fi
         fi
       fi
       
-      if [ "${p666_handle_remote_response_result}" -ne 0 ] && [ ${p666_skip_host_errors} -eq 0 ]; then
-        p666_exit "${p666_handle_remote_response_result}"
+      if [ "${p_handle_remote_response_result}" -ne 0 ] && [ ${p_skip_host_errors} -eq 0 ]; then
+        p_exit "${p_handle_remote_response_result}"
       fi
     }
 
-    p666_remote_ssh() {
-      p666_remote_ssh_host="${1}"; shift
-      p666_remote_ssh_user="${1}"; shift
+    p_remote_ssh() {
+      p_remote_ssh_host="${1}"; shift
+      p_remote_ssh_user="${1}"; shift
       
-      if cube_string_contains "${p666_remote_ssh_host}" "@"; then
-        p666_remote_ssh_user="$(cube_string_substring_before "${p666_remote_ssh_host}" "@")"
-        p666_remote_ssh_host="$(cube_string_substring_after "${p666_remote_ssh_host}" "@")"
+      if cube_string_contains "${p_remote_ssh_host}" "@"; then
+        p_remote_ssh_user="$(cube_string_substring_before "${p_remote_ssh_host}" "@")"
+        p_remote_ssh_host="$(cube_string_substring_after "${p_remote_ssh_host}" "@")"
       fi
       
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} ${p666_remote_ssh_user}@${p666_remote_ssh_host} ${*} ...\n"
+      [ ${p_debug} -eq 1 ] && p_printf "[${POSIXCUBE_COLOR_GREEN}${p_remote_ssh_host}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p_ssh_p_option} ${p_ssh_i_option} ${p_ssh_F_option} ${p_ssh_o_options_exec} ${p_ssh_t_option} ${p_remote_ssh_user}@${p_remote_ssh_host} ${*} ...\n"
       
-      if [ ${p666_parallel} -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
+      if [ ${p_parallel} -gt 0 ] && [ "${p_async}" -eq 1 ]; then
         # shellcheck disable=SC2086
         # shellcheck disable=SC2029
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1 &
-        p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
+        ssh ${p_ssh_p_option} ${p_ssh_i_option} ${p_ssh_F_option} ${p_ssh_o_options_exec} ${p_ssh_t_option} "${p_remote_ssh_user}@${p_remote_ssh_host}" "${@}" 2>&1 &
+        p_wait_pids=$(cube_append_str "${p_wait_pids}" "$!")
       else
         # shellcheck disable=SC2086
         # shellcheck disable=SC2029
-        ssh ${p666_ssh_p_option} ${p666_ssh_i_option} ${p666_ssh_F_option} ${p666_ssh_o_options_exec} ${p666_ssh_t_option} "${p666_remote_ssh_user}@${p666_remote_ssh_host}" "${@}" 2>&1
-        p666_host_output_result=$?
+        ssh ${p_ssh_p_option} ${p_ssh_i_option} ${p_ssh_F_option} ${p_ssh_o_options_exec} ${p_ssh_t_option} "${p_remote_ssh_user}@${p_remote_ssh_host}" "${@}" 2>&1
+        p_host_output_result=$?
         
-        [ ${p666_debug} -eq 1 ] && p666_printf "Finished executing on ${p666_remote_ssh_host}\n"
+        [ ${p_debug} -eq 1 ] && p_printf "Finished executing on ${p_remote_ssh_host}\n"
         
-        p666_handle_remote_response ${p666_host_output_result} "${p666_remote_ssh_host}" "Remote commands through SSH"
+        p_handle_remote_response ${p_host_output_result} "${p_remote_ssh_host}" "Remote commands through SSH"
       fi
     }
 
-    p666_remote_transfer() {
-      p666_remote_transfer_host="${1}"; shift
-      p666_remote_transfer_user="${1}"; shift
-      p666_remote_transfer_source="${1}"; shift
-      p666_remote_transfer_dest="${1}"; shift
+    p_remote_transfer() {
+      p_remote_transfer_host="${1}"; shift
+      p_remote_transfer_user="${1}"; shift
+      p_remote_transfer_source="${1}"; shift
+      p_remote_transfer_dest="${1}"; shift
       
-      if cube_string_contains "${p666_remote_transfer_host}" "@"; then
-        p666_remote_transfer_user="$(cube_string_substring_before "${p666_remote_transfer_host}" "@")"
-        p666_remote_transfer_host="$(cube_string_substring_after "${p666_remote_transfer_host}" "@")"
+      if cube_string_contains "${p_remote_transfer_host}" "@"; then
+        p_remote_transfer_user="$(cube_string_substring_before "${p_remote_transfer_host}" "@")"
+        p_remote_transfer_host="$(cube_string_substring_after "${p_remote_transfer_host}" "@")"
       fi
       
-      [ ${p666_debug} -eq 1 ] && p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing transfer ${p666_remote_transfer_source} to ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest} ...\n"
+      [ ${p_debug} -eq 1 ] && p_printf "[${POSIXCUBE_COLOR_GREEN}${p_remote_transfer_host}${POSIXCUBE_COLOR_RESET}] Executing transfer ${p_remote_transfer_source} to ${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest} ...\n"
       
-      if [ "${p666_parallel}" -gt 0 ] && [ "${p666_async}" -eq 1 ]; then
-        [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in background: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+      if [ "${p_parallel}" -gt 0 ] && [ "${p_async}" -eq 1 ]; then
+        [ ${p_debug} -eq 1 ] && p_printf "Transferring in background: ${p_remote_transfer_source} ${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}\n"
 
-        if [ "${p666_ssh_o_options_exec}" != "" ]; then
-          if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+        if [ "${p_ssh_o_options_exec}" != "" ]; then
+          if [ "${p_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
             # shellcheck disable=SC2086
-            ${p666_transfer_command} -e "ssh ${p666_ssh_o_options_exec}" ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+            ${p_transfer_command} -e "ssh ${p_ssh_o_options_exec}" ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}" &
           else
             # shellcheck disable=SC2086
-            ${p666_transfer_command} ${p666_ssh_o_options_exec} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+            ${p_transfer_command} ${p_ssh_o_options_exec} ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}" &
           fi
         else
           # shellcheck disable=SC2086
-          ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}" &
+          ${p_transfer_command} ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}" &
         fi
-        p666_wait_pids=$(cube_append_str "${p666_wait_pids}" "$!")
+        p_wait_pids=$(cube_append_str "${p_wait_pids}" "$!")
       else
-        [ ${p666_debug} -eq 1 ] && p666_printf "Transferring in foreground: ${p666_remote_transfer_source} ${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}\n"
+        [ ${p_debug} -eq 1 ] && p_printf "Transferring in foreground: ${p_remote_transfer_source} ${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}\n"
         
-        if [ "${p666_ssh_o_options_exec}" != "" ]; then
-          if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+        if [ "${p_ssh_o_options_exec}" != "" ]; then
+          if [ "${p_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
             # shellcheck disable=SC2086
-            ${p666_transfer_command} -e "ssh ${p666_ssh_o_options_exec}" ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+            ${p_transfer_command} -e "ssh ${p_ssh_o_options_exec}" ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}"
           else
             # shellcheck disable=SC2086
-            ${p666_transfer_command} ${p666_ssh_o_options_exec} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+            ${p_transfer_command} ${p_ssh_o_options_exec} ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}"
           fi
         else
           # shellcheck disable=SC2086
-          ${p666_transfer_command} ${p666_remote_transfer_source} "${p666_remote_transfer_user}@${p666_remote_transfer_host}:${p666_remote_transfer_dest}"
+          ${p_transfer_command} ${p_remote_transfer_source} "${p_remote_transfer_user}@${p_remote_transfer_host}:${p_remote_transfer_dest}"
         fi
-        p666_transfer_result=$?
+        p_transfer_result=$?
         
-        p666_handle_remote_response ${p666_transfer_result} "${p666_remote_transfer_host}" "${p666_transfer_command}"
+        p_handle_remote_response ${p_transfer_result} "${p_remote_transfer_host}" "${p_transfer_command}"
       fi
     }
 
-    p666_cubedir=${p666_cubedir%/}
+    p_cubedir=${p_cubedir%/}
     
-    p666_script_name="$(cube_current_script_name)"
-    p666_script_path="$(cube_current_script_abs_path)"
+    p_script_name="$(cube_current_script_name)"
+    p_script_path="$(cube_current_script_abs_path)"
     
-    p666_remote_script="${p666_cubedir}/${p666_script_name}"
+    p_remote_script="${p_cubedir}/${p_script_name}"
 
     # Create a script that we'll execute on the remote end
-    p666_script_contents="cube_initial_directory=\${PWD}"
-    p666_script_envar_contents=""
+    p_script_contents="cube_initial_directory=\${PWD}"
+    p_script_envar_contents=""
     
-    p666_envar_scripts_final=""
+    p_envar_scripts_final=""
 
-    for p666_envar_script in ${p666_envar_scripts}; do
+    for p_envar_script in ${p_envar_scripts}; do
     
-      p666_envar_script_remove=0
+      p_envar_script_remove=0
     
-      p666_envar_script_enc_matches=$(expr "${p666_envar_script}" : '.*\.enc$')
+      p_envar_script_enc_matches=$(expr "${p_envar_script}" : '.*\.enc$')
       
-      if [ "${p666_envar_script_enc_matches}" -ne 0 ]; then
+      if [ "${p_envar_script_enc_matches}" -ne 0 ]; then
         if cube_command_exists gpg ; then
-          [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script}"
+          [ ${p_debug} -eq 1 ] && p_printf "Decrypting ${p_envar_script}"
           
-          p666_envar_script_new=$(echo "${p666_envar_script}" | sed 's/enc$/dec/g')
+          p_envar_script_new=$(echo "${p_envar_script}" | sed 's/enc$/dec/g')
           
-          if [ "${p666_envar_scripts_password}" = "" ]; then
-            p666_printf "Enter the password for ${p666_envar_script}:\n"
-            gpg --output "${p666_envar_script_new}" --yes --decrypt "${p666_envar_script}" || cube_check_return
+          if [ "${p_envar_scripts_password}" = "" ]; then
+            p_printf "Enter the password for ${p_envar_script}:\n"
+            gpg --output "${p_envar_script_new}" --yes --decrypt "${p_envar_script}" || cube_check_return
           else
-            [ ${p666_debug} -eq 1 ] && p666_printf "Decrypting ${p666_envar_script} ...\n"
-            p666_gpg_output="$(echo "${p666_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p666_envar_script_new}" --decrypt "${p666_envar_script}" 2>&1)" || cube_check_return "${p666_gpg_output}"
+            [ ${p_debug} -eq 1 ] && p_printf "Decrypting ${p_envar_script} ...\n"
+            p_gpg_output="$(echo "${p_envar_scripts_password}" | gpg --passphrase-fd 0 --batch --yes --output "${p_envar_script_new}" --decrypt "${p_envar_script}" 2>&1)" || cube_check_return "${p_gpg_output}"
           fi
           
-          p666_envar_script="${p666_envar_script_new}"
-          p666_envar_script_remove=1
+          p_envar_script="${p_envar_script_new}"
+          p_envar_script_remove=1
         else
-          p666_printf_error "gpg program not found on the PATH"
-          p666_exit 1
+          p_printf_error "gpg program not found on the PATH"
+          p_exit 1
         fi
       fi
       
-      p666_envar_scripts_final=$(cube_append_str "${p666_envar_scripts_final}" "${p666_envar_script}")
+      p_envar_scripts_final=$(cube_append_str "${p_envar_scripts_final}" "${p_envar_script}")
       
-      chmod u+x "${p666_envar_script}"
+      chmod u+x "${p_envar_script}"
       
-      if [ ${p666_envar_script_remove} -eq 1 ]; then
+      if [ ${p_envar_script_remove} -eq 1 ]; then
       
         # We don't check the return value of the remove because that can cause errors with `-s`
       
         # shellcheck disable=SC2116
-        p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/ || cube_check_return
-. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}")"
+        p_script_contents="${p_script_contents}
+cd ${p_cubedir}/ || cube_check_return
+. $(echo "${p_cubedir}")/$(basename "${p_envar_script}")"
 
         # shellcheck disable=SC2116
-        p666_script_contents="${p666_script_contents}
-rm -f $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}")"
+        p_script_contents="${p_script_contents}
+rm -f $(echo "${p_cubedir}")/$(basename "${p_envar_script}")"
       else
         # shellcheck disable=SC2116
-        p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/ || cube_check_return
-. $(echo "${p666_cubedir}")/$(basename "${p666_envar_script}") || cube_check_return"
+        p_script_contents="${p_script_contents}
+cd ${p_cubedir}/ || cube_check_return
+. $(echo "${p_cubedir}")/$(basename "${p_envar_script}") || cube_check_return"
       fi
     done
     
-    p666_envar_scripts="${p666_envar_scripts_final}"
+    p_envar_scripts="${p_envar_scripts_final}"
     
-    for p666_cube in ${p666_cubes}; do
-      if [ -d "${p666_cube}" ]; then
-        p666_cube_name=$(basename "${p666_cube}")
-        if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-          chmod u+x "${p666_cube}"/*.sh
-          p666_cube=${p666_cube%/}
-          p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/${p666_cube}/ || cube_check_return
-cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}.sh\" . ${p666_cubedir}/${p666_cube}/${p666_cube_name}.sh || cube_check_return \"Last command in cube. Note: some posixcube APIs may return non-zero successful. If this is not checked, then consider ending the script with the statement true.\"
-cube_echo \"Finished cube: ${p666_cube_name}\"
+    for p_cube in ${p_cubes}; do
+      if [ -d "${p_cube}" ]; then
+        p_cube_name=$(basename "${p_cube}")
+        if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+          chmod u+x "${p_cube}"/*.sh
+          p_cube=${p_cube%/}
+          p_script_contents="${p_script_contents}
+cd ${p_cubedir}/${p_cube}/ || cube_check_return
+cube_echo \"Started cube: ${p_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cube_name}.sh\" . ${p_cubedir}/${p_cube}/${p_cube_name}.sh || cube_check_return \"Last command in cube. Note: some posixcube APIs may return non-zero successful. If this is not checked, then consider ending the script with the statement true.\"
+cube_echo \"Finished cube: ${p_cube_name}\"
 "
-          if [ -r "${p666_cube}/envars.sh" ]; then
-            p666_script_envar_contents="${p666_script_envar_contents}
-. ${p666_cubedir}/${p666_cube}/envars.sh || cube_check_return \"Failed loading cube envars\"
+          if [ -r "${p_cube}/envars.sh" ]; then
+            p_script_envar_contents="${p_script_envar_contents}
+. ${p_cubedir}/${p_cube}/envars.sh || cube_check_return \"Failed loading cube envars\"
 "
           fi
         else
-          p666_printf_error "Could not find ${p666_cube_name}.sh in cube ${p666_cube} directory."
-          p666_exit 1
+          p_printf_error "Could not find ${p_cube_name}.sh in cube ${p_cube} directory."
+          p_exit 1
         fi
-      elif [ -r "${p666_cube}" ]; then
-        p666_cube_name=$(basename "${p666_cube}")
-        chmod u+x "${p666_cube}"
-        p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/ || cube_check_return
-cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
-cube_echo \"Finished cube: ${p666_cube_name}\"
+      elif [ -r "${p_cube}" ]; then
+        p_cube_name=$(basename "${p_cube}")
+        chmod u+x "${p_cube}"
+        p_script_contents="${p_script_contents}
+cd ${p_cubedir}/ || cube_check_return
+cube_echo \"Started cube: ${p_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cube_name}\" . ${p_cubedir}/${p_cube_name} || cube_check_return \"Last command in cube\"
+cube_echo \"Finished cube: ${p_cube_name}\"
 "
-      elif [ -r "${p666_cube}.sh" ]; then
-        p666_cube_name=$(basename "${p666_cube}.sh")
-        chmod u+x "${p666_cube}.sh"
-        p666_script_contents="${p666_script_contents}
-cd ${p666_cubedir}/ || cube_check_return
-cube_echo \"Started cube: ${p666_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p666_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p666_cube_name}\" . ${p666_cubedir}/${p666_cube_name} || cube_check_return \"Last command in cube\"
-cube_echo \"Finished cube: ${p666_cube_name}\"
+      elif [ -r "${p_cube}.sh" ]; then
+        p_cube_name=$(basename "${p_cube}.sh")
+        chmod u+x "${p_cube}.sh"
+        p_script_contents="${p_script_contents}
+cd ${p_cubedir}/ || cube_check_return
+cube_echo \"Started cube: ${p_cube_name}\"
+POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cube_name}\" . ${p_cubedir}/${p_cube_name} || cube_check_return \"Last command in cube\"
+cube_echo \"Finished cube: ${p_cube_name}\"
 "
       else
-        p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
-        p666_exit 1
+        p_printf_error "Cube ${p_cube} could not be found as a directory or script, or you don't have read permissions."
+        p_exit 1
       fi
-      p666_script_contents="${p666_script_contents}${POSIXCUBE_NEWLINE}cd \${cube_initial_directory}"
+      p_script_contents="${p_script_contents}${POSIXCUBE_NEWLINE}cd \${cube_initial_directory}"
     done
     
-    for p666_cube in ${p666_include_cubes}; do
-      if [ -d "${p666_cube}" ]; then
-        p666_cube_name=$(basename "${p666_cube}")
-        if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-          chmod u+x "${p666_cube}"/*.sh
+    for p_cube in ${p_include_cubes}; do
+      if [ -d "${p_cube}" ]; then
+        p_cube_name=$(basename "${p_cube}")
+        if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+          chmod u+x "${p_cube}"/*.sh
         fi
-      elif [ -r "${p666_cube}" ]; then
-        chmod u+x "${p666_cube}"
-      elif [ -r "${p666_cube}.sh" ]; then
-        chmod u+x "${p666_cube}.sh"
+      elif [ -r "${p_cube}" ]; then
+        chmod u+x "${p_cube}"
+      elif [ -r "${p_cube}.sh" ]; then
+        chmod u+x "${p_cube}.sh"
       else
-        p666_printf_error "Cube ${p666_cube} could not be found as a directory or script, or you don't have read permissions."
-        p666_exit 1
+        p_printf_error "Cube ${p_cube} could not be found as a directory or script, or you don't have read permissions."
+        p_exit 1
       fi
     done
     
-    if [ "${p666_commands}" != "" ]; then
-      p666_script_contents="${p666_script_contents}
-  ${p666_commands}"
+    if [ "${p_commands}" != "" ]; then
+      p_script_contents="${p_script_contents}
+  ${p_commands}"
     fi
     
-    p666_script="./cube_exec.sh"
+    p_script="./cube_exec.sh"
     
-    cat <<HEREDOC > "${p666_script}"
+    cat <<HEREDOC > "${p_script}"
 #!/bin/sh
 POSIXCUBE_APIS_ONLY=1
 POSIXCUBE_COLORS="${POSIXCUBE_COLORS}"
-. ${p666_remote_script}
+. ${p_remote_script}
 if [ \$? -ne 0 ] ; then
-  echo "Could not source ${p666_remote_script} script" 1>&2
+  echo "Could not source ${p_remote_script} script" 1>&2
   exit 1
 fi
 
-cubevar_api_debug=${p666_debug}
-cubevar_api_superuser="${p666_superuser}"
-cubevar_api_roles="${p666_roles}"
-${p666_script_envar_contents}
-${p666_options}
-${p666_script_contents}
+cubevar_api_debug=${p_debug}
+cubevar_api_superuser="${p_superuser}"
+cubevar_api_roles="${p_roles}"
+${p_script_envar_contents}
+${p_options}
+${p_script_contents}
 
 if [ "\${cubevar_api_post_restart}" != "" ]; then
-  for p666_post in \${cubevar_api_post_restart}; do
-    cube_service restart "\${p666_post}"
+  for p_post in \${cubevar_api_post_restart}; do
+    cube_service restart "\${p_post}"
   done
 fi
 HEREDOC
 
-    chmod +x "${p666_script}"
+    chmod +x "${p_script}"
     
-    p666_upload="${p666_script} "
+    p_upload="${p_script} "
 
-    if [ "${p666_cubes}" != "" ]; then
-      for p666_cube in ${p666_cubes}; do
-        if [ -d "${p666_cube}" ]; then
-          p666_cube_name=$(basename "${p666_cube}")
-          if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-            p666_cube=${p666_cube%/}
-            p666_upload="${p666_upload} ${p666_cube}"
+    if [ "${p_cubes}" != "" ]; then
+      for p_cube in ${p_cubes}; do
+        if [ -d "${p_cube}" ]; then
+          p_cube_name=$(basename "${p_cube}")
+          if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+            p_cube=${p_cube%/}
+            p_upload="${p_upload} ${p_cube}"
           fi
-        elif [ -r "${p666_cube}" ]; then
-          p666_cube_name=$(basename "${p666_cube}")
-          p666_upload="${p666_upload} ${p666_cube}"
-        elif [ -r "${p666_cube}.sh" ]; then
-          p666_cube_name=$(basename "${p666_cube}.sh")
-          p666_upload="${p666_upload} ${p666_cube}.sh"
+        elif [ -r "${p_cube}" ]; then
+          p_cube_name=$(basename "${p_cube}")
+          p_upload="${p_upload} ${p_cube}"
+        elif [ -r "${p_cube}.sh" ]; then
+          p_cube_name=$(basename "${p_cube}.sh")
+          p_upload="${p_upload} ${p_cube}.sh"
         fi
       done
     fi
 
-    if [ "${p666_include_cubes}" != "" ]; then
-      for p666_cube in ${p666_include_cubes}; do
-        if [ -d "${p666_cube}" ]; then
-          p666_cube_name=$(basename "${p666_cube}")
-          if [ -r "${p666_cube}/${p666_cube_name}.sh" ]; then
-            p666_cube=${p666_cube%/}
-            p666_upload="${p666_upload} ${p666_cube}"
+    if [ "${p_include_cubes}" != "" ]; then
+      for p_cube in ${p_include_cubes}; do
+        if [ -d "${p_cube}" ]; then
+          p_cube_name=$(basename "${p_cube}")
+          if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+            p_cube=${p_cube%/}
+            p_upload="${p_upload} ${p_cube}"
           fi
-        elif [ -r "${p666_cube}" ]; then
-          p666_cube_name=$(basename "${p666_cube}")
-          p666_upload="${p666_upload} ${p666_cube}"
-        elif [ -r "${p666_cube}.sh" ]; then
-          p666_cube_name=$(basename "${p666_cube}.sh")
-          p666_upload="${p666_upload} ${p666_cube}.sh"
+        elif [ -r "${p_cube}" ]; then
+          p_cube_name=$(basename "${p_cube}")
+          p_upload="${p_upload} ${p_cube}"
+        elif [ -r "${p_cube}.sh" ]; then
+          p_cube_name=$(basename "${p_cube}.sh")
+          p_upload="${p_upload} ${p_cube}.sh"
         else
-          p666_printf_error "Could not find ${p666_cube}"
-          p666_exit 1
+          p_printf_error "Could not find ${p_cube}"
+          p_exit 1
         fi
       done
     fi
 
-    p666_async=1
+    p_async=1
     
-    if [ ${p666_skip_init} -eq 0 ]; then
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Preparing hosts: ${p666_hosts} ...\n"
+    if [ ${p_skip_init} -eq 0 ]; then
+      [ ${p_quiet} -eq 0 ] && p_printf "Preparing hosts: ${p_hosts} ...\n"
     
-      p666_wait_pids=""
-      for p666_host in ${p666_hosts}; do
-        if [ "${p666_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
+      p_wait_pids=""
+      for p_host in ${p_hosts}; do
+        if [ "${p_transfer_command}" = "${POSIXCUBE_TRANSFER_RSYNC}" ]; then
           # Debian doesn't have rsync installed by default
-          p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p666_superuser} apt-get -y install rsync); exit \${RC};"
+          p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}; RC=\$?; command -v rsync >/dev/null 2>&1 || (command -v apt-get >/dev/null 2>&1 && ${p_superuser} apt-get -y install rsync); exit \${RC};"
         else
-          p666_remote_ssh "${p666_host}" "${p666_user}" "[ ! -d \"${p666_cubedir}\" ] && mkdir -p ${p666_cubedir}"
+          p_remote_ssh "${p_host}" "${p_user}" "[ ! -d \"${p_cubedir}\" ] && mkdir -p ${p_cubedir}"
         fi
       done
       
-      if [ "${p666_wait_pids}" != "" ]; then
-        [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on initialization PIDs: ${p666_wait_pids} ...\n"
+      if [ "${p_wait_pids}" != "" ]; then
+        [ ${p_debug} -eq 1 ] && p_printf "Waiting on initialization PIDs: ${p_wait_pids} ...\n"
         
-        wait ${p666_wait_pids}
-        p666_host_output_result=$?
+        wait ${p_wait_pids}
+        p_host_output_result=$?
         
-        p666_handle_remote_response ${p666_host_output_result} "" "Remote commands through SSH"
+        p_handle_remote_response ${p_host_output_result} "" "Remote commands through SSH"
       fi
       
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Completed preparation.\n"
+      [ ${p_quiet} -eq 0 ] && p_printf "Completed preparation.\n"
 
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Transferring files to hosts: ${p666_hosts} ...\n"
+      [ ${p_quiet} -eq 0 ] && p_printf "Transferring files to hosts: ${p_hosts} ...\n"
       
-      p666_wait_pids=""
-      for p666_host in ${p666_hosts}; do
-        if [ ${p666_skip_init} -eq 0 ]; then
-          p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_script_path} ${p666_envar_scripts}" "${p666_cubedir}/"
+      p_wait_pids=""
+      for p_host in ${p_hosts}; do
+        if [ ${p_skip_init} -eq 0 ]; then
+          p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_script_path} ${p_envar_scripts}" "${p_cubedir}/"
         else
-          p666_remote_transfer "${p666_host}" "${p666_user}" "${p666_upload} ${p666_envar_scripts}" "${p666_cubedir}/"
+          p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_envar_scripts}" "${p_cubedir}/"
         fi
       done
       
-      if [ "${p666_wait_pids}" != "" ]; then
-        [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on transfer PIDs: ${p666_wait_pids} ...\n"
+      if [ "${p_wait_pids}" != "" ]; then
+        [ ${p_debug} -eq 1 ] && p_printf "Waiting on transfer PIDs: ${p_wait_pids} ...\n"
         
-        wait ${p666_wait_pids}
-        p666_host_output_result=$?
+        wait ${p_wait_pids}
+        p_host_output_result=$?
         
-        p666_handle_remote_response ${p666_host_output_result} "" "${p666_transfer_command}"
+        p_handle_remote_response ${p_host_output_result} "" "${p_transfer_command}"
       fi
 
-      [ ${p666_quiet} -eq 0 ] && p666_printf "Completed transfers.\n"
+      [ ${p_quiet} -eq 0 ] && p_printf "Completed transfers.\n"
     fi
     
-    p666_wait_pids=""
-    p666_async=${p666_async_cubes}
+    p_wait_pids=""
+    p_async=${p_async_cubes}
     
-    for p666_host in ${p666_hosts}; do
-      if [ ${p666_quiet} -eq 0 ]; then
-        if cube_string_contains "${p666_host}" "@"; then
-          p666_host_final="$(cube_string_substring_after "${p666_host}" "@")"
+    for p_host in ${p_hosts}; do
+      if [ ${p_quiet} -eq 0 ]; then
+        if cube_string_contains "${p_host}" "@"; then
+          p_host_final="$(cube_string_substring_after "${p_host}" "@")"
         else
-          p666_host_final="${p666_host}"
+          p_host_final="${p_host}"
         fi
-        p666_printf "[${POSIXCUBE_COLOR_GREEN}${p666_host_final}${POSIXCUBE_COLOR_RESET}] Executing on ${p666_host_final} ...\n"
+        p_printf "[${POSIXCUBE_COLOR_GREEN}${p_host_final}${POSIXCUBE_COLOR_RESET}] Executing on ${p_host_final} ...\n"
       fi
       
-      p666_remote_ssh "${p666_host}" "${p666_user}" ". ${p666_cubedir}/${p666_script}"
+      p_remote_ssh "${p_host}" "${p_user}" ". ${p_cubedir}/${p_script}"
     done
 
-    if [ "${p666_wait_pids}" != "" ]; then
-      [ ${p666_debug} -eq 1 ] && p666_printf "Waiting on cube execution PIDs: ${p666_wait_pids} ...\n"
+    if [ "${p_wait_pids}" != "" ]; then
+      [ ${p_debug} -eq 1 ] && p_printf "Waiting on cube execution PIDs: ${p_wait_pids} ...\n"
       
-      wait ${p666_wait_pids}
-      p666_host_output_result=$?
+      wait ${p_wait_pids}
+      p_host_output_result=$?
       
-      p666_handle_remote_response ${p666_host_output_result} "" "Cube execution"
+      p_handle_remote_response ${p_host_output_result} "" "Cube execution"
     fi
 
-    p666_exit 0
+    p_exit 0
   fi
 fi
 
