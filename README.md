@@ -254,6 +254,14 @@
           Print $1 to stdout with $2 appended after a space if $1 was not blank.
           Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
+      * cube_element_exists
+          Check if $1 contains the $2 element with the $3 delimiter (default space).
+          Example: cube_element_exists "${cubevar_str}" "X"
+
+      * cube_elements_count
+          Print to stdout the number of elements in the string $1 as separated by the delimeter $2 (default space).
+          Example: cubevar_app_count=$(cube_elements_count "${cubevar_str}")
+
       * cube_command_exists
           Check if $1 command or function exists in the current context.
           Example: cube_command_exists systemctl

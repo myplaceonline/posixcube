@@ -264,6 +264,14 @@ Public APIs:
       Print $1 to stdout with $2 appended after a space if $1 was not blank.
       Example: cubevar_app_str=$(cube_append_str "${cubevar_app_str}" "Test")
 
+  * cube_element_exists
+      Check if $1 contains the $2 element with the $3 delimiter (default space).
+      Example: cube_element_exists "${cubevar_str}" "X"
+
+  * cube_elements_count
+      Print to stdout the number of elements in the string $1 as separated by the delimeter $2 (default space).
+      Example: cubevar_app_count=$(cube_elements_count "${cubevar_str}")
+
   * cube_command_exists
       Check if $1 command or function exists in the current context.
       Example: cube_command_exists systemctl
@@ -775,6 +783,58 @@ cube_append_str() {
       echo "${1}${3}${2}"
     fi
   fi
+}
+
+# Check if $1 contains the $2 element with the $3 delimiter (default space).
+#
+# Example:
+#   cube_element_exists "${cubevar_str}" "X"
+# Arguments:
+#   Required:
+#     $1: String of elements separated by $3
+#     $2: Element to search for
+#   Optional:
+#     $3: Delimeter (default space)
+cube_element_exists() {
+  cube_check_numargs 2 "${@}"
+  
+  if [ "${3}" != "" ]; then
+    cube_throw "Not implemented."
+  fi
+  
+  for cube_element_exists_element in ${1}; do
+    if [ "${cube_element_exists_element}" = "${2}" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# Print to stdout the number of elements in the string $1 as separated by the delimeter $2 (default space).
+#
+# Example:
+#   cubevar_app_count=$(cube_elements_count "${cubevar_str}")
+# Arguments:
+#   Required:
+#     $1: String of elements separated by $2
+#   Optional:
+#     $2: Delimeter (default space)
+cube_elements_count() {
+  cube_check_numargs 1 "${@}"
+  
+  if [ "${2}" != "" ]; then
+    cube_throw "Not implemented."
+  fi
+  
+  cube_elements_count_result=0
+  
+  # shellcheck disable=SC2034
+  for cube_elements_count_element in ${1}; do
+    cube_elements_count_result=$((cube_elements_count_result+1))
+  done
+
+  echo ${cube_elements_count_result}
 }
 
 # Check if $1 command or function exists in the current context.
@@ -1869,6 +1929,8 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p_superuser=""
   p_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
   p_local=0
+  p_shells=""
+  p_exec_shell="/bin/dash"
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p_parallel=64
@@ -2347,6 +2409,16 @@ HEREDOC
         p_handle_remote_response ${p_host_output_result} "${p_remote_ssh_host}" "Remote commands through SSH"
       fi
     }
+    
+    p_process_script() {
+      read -r p_process_script_firstline < "${1}" || cube_check_return
+      
+      # http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_06_02
+      p_process_script_firstline_trimmed="${p_process_script_firstline###!}"
+      if ! cube_element_exists "${p_shells}" "${p_process_script_firstline_trimmed}"; then
+        p_shells=$(cube_append_str "${p_shells}" "${p_process_script_firstline_trimmed}")
+      fi
+    }
 
     p_remote_transfer() {
       p_remote_transfer_host="${1}"; shift
@@ -2470,6 +2542,7 @@ cd ${p_cubedir}/ || cube_check_return
       if [ -d "${p_cube}" ]; then
         p_cube_name=$(basename "${p_cube}")
         if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+          p_process_script "${p_cube}/${p_cube_name}.sh"
           chmod u+x "${p_cube}"/*.sh
           p_cube=${p_cube%/}
           p_script_contents="${p_script_contents}
@@ -2488,6 +2561,7 @@ cube_echo \"Finished cube: ${p_cube_name}\"
           p_exit 1
         fi
       elif [ -r "${p_cube}" ]; then
+        p_process_script "${p_cube}"
         p_cube_name=$(basename "${p_cube}")
         chmod u+x "${p_cube}"
         p_script_contents="${p_script_contents}
@@ -2497,6 +2571,7 @@ POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cu
 cube_echo \"Finished cube: ${p_cube_name}\"
 "
       elif [ -r "${p_cube}.sh" ]; then
+        p_process_script "${p_cube}.sh"
         p_cube_name=$(basename "${p_cube}.sh")
         chmod u+x "${p_cube}.sh"
         p_script_contents="${p_script_contents}
@@ -2516,11 +2591,14 @@ cube_echo \"Finished cube: ${p_cube_name}\"
       if [ -d "${p_cube}" ]; then
         p_cube_name=$(basename "${p_cube}")
         if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+          p_process_script "${p_cube}/${p_cube_name}.sh"
           chmod u+x "${p_cube}"/*.sh
         fi
       elif [ -r "${p_cube}" ]; then
+        p_process_script "${p_cube}"
         chmod u+x "${p_cube}"
       elif [ -r "${p_cube}.sh" ]; then
+        p_process_script "${p_cube}.sh"
         chmod u+x "${p_cube}.sh"
       else
         p_printf_error "Cube ${p_cube} could not be found as a directory or script, or you don't have read permissions."
@@ -2688,8 +2766,13 @@ HEREDOC
     if [ ${p_local} -eq 1 ]; then
       cube_echo "Executing locally ..."
       
-      # shellcheck disable=SC1090
-      . ${p_localcubedir}/${p_script}
+      p_shells_count=$(cube_elements_count "${p_shells}")
+
+      if [ "${p_shells_count}" = "1" ] && [ "${p_shells}" != "${p_exec_shell}" ]; then
+        p_exec_shell="${p_shells}"
+      fi
+
+      ${p_exec_shell} ${p_localcubedir}/${p_script}
     fi
 
     if [ "${p_wait_pids}" != "" ]; then
