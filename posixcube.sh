@@ -1930,7 +1930,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
   p_local=0
   p_shells=""
-  p_exec_shell="/bin/dash"
+  p_exec_shell="/bin/sh"
   
   if [ "$(cube_shell)" -eq ${POSIXCUBE_SHELL_BASH} ]; then
     p_parallel=64
