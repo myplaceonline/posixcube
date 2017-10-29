@@ -2611,10 +2611,21 @@ cube_echo \"Finished cube: ${p_cube_name}\"
   ${p_commands}"
     fi
     
+    p_shells_count=$(cube_elements_count "${p_shells}")
+
+    if [ "${p_shells}" != "" ] && [ "${p_shells}" != "${p_exec_shell}" ]; then
+      if [ "${p_shells_count}" = "1" ]; then
+        p_printf "Auto-detecting non-standard shell ${p_shells}\n"
+        p_exec_shell="${p_shells}"
+      else
+        p_printf "Warning: Multiple shebang shells detected. Everything will be sourced under /bin/sh\n"
+      fi
+    fi
+
     p_script="./cube_exec.sh"
     
     cat <<HEREDOC > "${p_script}"
-#!/bin/sh
+#!${p_exec_shell}
 POSIXCUBE_APIS_ONLY=1
 POSIXCUBE_COLORS="${POSIXCUBE_COLORS}"
 . ${p_remote_script}
@@ -2757,21 +2768,15 @@ HEREDOC
         else
           p_host_final="${p_host}"
         fi
-        p_printf "[${POSIXCUBE_COLOR_GREEN}${p_host_final}${POSIXCUBE_COLOR_RESET}] Executing on ${p_host_final} ...\n"
+        p_printf "[${POSIXCUBE_COLOR_GREEN}${p_host_final}${POSIXCUBE_COLOR_RESET}] Executing \`${p_exec_shell} ${p_cubedir}/${p_script}\` on ${p_user}@${p_host_final} ...\n"
       fi
       
-      p_remote_ssh "${p_host}" "${p_user}" ". ${p_cubedir}/${p_script}"
+      p_remote_ssh "${p_host}" "${p_user}" "${p_exec_shell} ${p_cubedir}/${p_script}"
     done
     
     if [ ${p_local} -eq 1 ]; then
       cube_echo "Executing locally ..."
       
-      p_shells_count=$(cube_elements_count "${p_shells}")
-
-      if [ "${p_shells_count}" = "1" ] && [ "${p_shells}" != "${p_exec_shell}" ]; then
-        p_exec_shell="${p_shells}"
-      fi
-
       ${p_exec_shell} ${p_localcubedir}/${p_script}
     fi
 
