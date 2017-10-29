@@ -2415,7 +2415,7 @@ HEREDOC
       
       # http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_06_02
       p_process_script_firstline_trimmed="${p_process_script_firstline###!}"
-      if ! cube_element_exists "${p_shells}" "${p_process_script_firstline_trimmed}"; then
+      if [ "${p_process_script_firstline_trimmed}" != "/bin/sh" ] && ! cube_element_exists "${p_shells}" "${p_process_script_firstline_trimmed}"; then
         p_shells=$(cube_append_str "${p_shells}" "${p_process_script_firstline_trimmed}")
       fi
     }
@@ -2618,7 +2618,7 @@ cube_echo \"Finished cube: ${p_cube_name}\"
         p_printf "Auto-detecting non-standard shell ${p_shells}\n"
         p_exec_shell="${p_shells}"
       else
-        p_printf "Warning: Multiple shebang shells detected. Everything will be sourced under /bin/sh\n"
+        p_printf "Warning: Multiple shebang shells detected (${p_shells}). Everything will be sourced under ${p_exec_shell}\n"
       fi
     fi
 
