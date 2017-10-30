@@ -2781,7 +2781,7 @@ HEREDOC
     done
     
     if [ ${p_local} -eq 1 ]; then
-      cube_echo "Executing locally ..."
+      cube_echo "Executing \`${p_exec_shell} ${p_localcubedir}/${p_script}\` locally ..."
       
       ${p_exec_shell} ${p_localcubedir}/${p_script}
     fi
