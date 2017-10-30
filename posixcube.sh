@@ -2752,7 +2752,7 @@ HEREDOC
         [ ${p_debug} -eq 1 ] && p_printf "Preparing local execution ...\n"
         
         # shellcheck disable=SC2086
-        cp -aLfuR ${p_upload} ${p_script_path} ${p_envar_scripts} ${p_localcubedir}/ || cube_check_return
+        cp -LfR ${p_upload} ${p_script_path} ${p_envar_scripts} ${p_localcubedir}/ || cube_check_return
         
         [ ${p_debug} -eq 1 ] && p_printf "Completed local preparation.\n"
       fi
