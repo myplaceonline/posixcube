@@ -799,7 +799,7 @@ cube_element_exists() {
   cube_check_numargs 2 "${@}"
   
   if [ "${3}" != "" ]; then
-    cube_throw "Not implemented."
+    cube_throw "Not implemented (cube_element_exists)."
   fi
   
   for cube_element_exists_element in ${1}; do
@@ -824,7 +824,7 @@ cube_elements_count() {
   cube_check_numargs 1 "${@}"
   
   if [ "${2}" != "" ]; then
-    cube_throw "Not implemented."
+    cube_throw "Not implemented (cube_elements_count)."
   fi
   
   cube_elements_count_result=0
@@ -1058,7 +1058,7 @@ cube_service() {
         cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} defaults"
         ${cubevar_api_superuser} update-rc.d "${2}" defaults || cube_check_return
       else
-        cube_throw Not implemented
+        cube_throw "Not implemented (cube_service 1)"
       fi
     elif [ "${1}" = "disable" ]; then
       if cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA}; then
@@ -1070,7 +1070,7 @@ cube_service() {
         cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} stop 80 0 1 2 3 4 5 6 ."
         ${cubevar_api_superuser} update-rc.d "${2}" stop 80 0 1 2 3 4 5 6 . || cube_check_return
       else
-        cube_throw Not implemented
+        cube_throw "Not implemented (cube_service 1)"
       fi
     elif [ "${1}" != "daemon-reload" ]; then
       cube_echo "Executing ${cubevar_api_superuser} service ${2} ${1}"
@@ -1111,7 +1111,7 @@ cube_service_exists() {
     echo "${cube_service_exists_output}" | grep -l loaded >/dev/null 2>&1
     return $?
   else
-    cube_throw "Not implemented"
+    cube_throw "Not implemented (cube_service_exists)"
   fi
 }
 
@@ -1546,7 +1546,8 @@ cube_pushd() {
     # shellcheck disable=SC2039
     pushd "${1}" || cube_check_return
   else
-    cube_throw "Not implemented"
+    #cube_throw "Not implemented (cube_pushd)"
+    cd "${1}" || cube_check_return
   fi
 }
 
@@ -1561,7 +1562,8 @@ cube_popd() {
     # shellcheck disable=SC2039
     popd || cube_check_return
   else
-    cube_throw "Not implemented"
+    #cube_throw "Not implemented (cube_popd)"
+    cd -
   fi
 }
 
