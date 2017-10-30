@@ -2774,7 +2774,7 @@ HEREDOC
           p_display_user="$(cube_string_substring_before "${p_host}" "@")"
         fi
         
-        p_printf "[${POSIXCUBE_COLOR_GREEN}${p_host_final}${POSIXCUBE_COLOR_RESET}] Executing \`${p_exec_shell} ${p_cubedir}/${p_script}\` on ${p_display_user}@${p_host_final} ...\n"
+        p_printf "[${POSIXCUBE_COLOR_GREEN}${p_host_final}${POSIXCUBE_COLOR_RESET}] Executing ssh ${p_display_user}@${p_host_final} '${p_exec_shell} ${p_cubedir}/${p_script}' ...\n"
       fi
       
       p_remote_ssh "${p_host}" "${p_user}" "${p_exec_shell} ${p_cubedir}/${p_script}"
