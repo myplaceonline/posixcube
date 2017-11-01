@@ -478,7 +478,8 @@ Public APIs:
       To reduce the risks of MITM attacks, you can call this only after a
       successful call to `cube_user_ensure_private_key` so that the scan is
       only done once on private key setup.
-      Example: cube_user_authorize_known_host some_host
+      Example: cube_user_ensure_private_key "${cubevar_app_host_privkey}" && \
+                 cube_user_authorize_known_host some_host
   
 Public Variables:
 
@@ -2073,7 +2074,7 @@ cube_user_ensure_authorized_public_key() {
 # only done once on private key setup.
 #
 # Example:
-#   cube_user_authorize_known_host some_host
+#   cube_user_ensure_private_key "${cubevar_app_host_privkey}" && cube_user_authorize_known_host some_host
 # Arguments:
 #   Required:
 #     $1: Remote host
