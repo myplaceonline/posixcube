@@ -453,7 +453,7 @@
       
       * cube_user_ensure_private_key
           Ensure the SSH private key contents $1 are placed in a file named $2
-          (defaults to `id_rsa`) or the user $3 (defaults to `cube_current_user`)
+          (defaults to `id_rsa`) for the user $3 (defaults to `cube_current_user`)
           Example: cube_user_ensure_private_key "${cubevar_app_key1_private}"
       
       * cube_user_ensure_authorized_public_key
