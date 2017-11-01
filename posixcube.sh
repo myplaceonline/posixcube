@@ -84,9 +84,9 @@ Description:
   file `envars.sh`, it's sourced before anything else (including `-e ENVARs`).
   
   Both CUBEs and COMMANDs may execute any of the functions defined in the
-  "Public APIs" in the posixcube.sh script. Short descriptions of the functions
-  are in the APIs section below. See the source comments above each function
-  for details.
+  "Public APIs" in the posixcube.sh script. Short descriptions of the
+  functions are in the APIs section below. See the source comments above each
+  function for details.
   
 Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
 
@@ -125,7 +125,7 @@ Examples (assuming posixcube.sh is on ${PATH}, or executed absolutely):
     Run the `uptime` command on all hosts matching the regular expression
     web.*.test.com in the SSH configuration files.
   
-  sudo ${PATH_TO}/posixcube.sh -b && . /etc/bash_completion.d/posixcube_completion.sh
+  sudo posixcube.sh -b && . /etc/bash_completion.d/posixcube_completion.sh
   
     For Bash users, install a programmable completion script to support tab
     auto-completion of hosts from SSH configuration files.
@@ -150,18 +150,20 @@ Philosophy:
   1. Fail hard and fast. In principle, a well written script would check ${?}
   after each command and either gracefully handle it, or report an error.
   Few people write scripts this well, so we enforce this check (using
-  `cube_check_return` within all APIs) and we encourage you to do the same
-  in your scripts with `touch /etc/fstab || cube_check_return`. All cube_*
+  `cube_check_return` within all APIs) and we encourage you to do the same;
+  for example, `touch /etc/fstab || cube_check_return`. All cube_*
   APIs are guaranteed to do their own checks, so you don't have to do this
   for those calls; however, note that if you're executing a cube_* API in a
   sub-shell, although any failures will be reported by cube_check_return,
   the script will continue unless you also check the return of the sub-shell.
   For example: $(cube_readlink /etc/localtime) || cube_check_return
-  With this strategy, unfortunately piping becomes more difficult. There are
+  
+  With this strategy, unfortunately, piping becomes more difficult. There are
   non-standard mechanisms like pipefail and PIPESTATUS, but the standardized
   approach is to run each command separately and check the status. For example:
-  cube_app_result1="$(command1 || cube_check_return)" || cube_check_return
-  cube_app_result2="$(printf '%s' "${cube_app_result1}" | command2 || cube_check_return)" || cube_check_return
+  
+  cubevar_app_x="$(cmd1)" || cube_check_return
+  cubevar_app_y="$(printf '%s' "${cubevar_app_x}" | cmd2" || cube_check_return
   
   2. We don't use `set -e` because some functions may handle all errors
   internally (with `cube_check_return`) and use a positive return code as a
@@ -225,13 +227,13 @@ Public APIs:
       Example: cube_error_printf "Goodbye World from PID %5s" $$
 
   * cube_warning_echo
-      Same as cube_echo except output to stderr and include a yellow "Warning: "
-      message prefix.
+      Same as cube_echo except output to stderr and include a yellow
+      "Warning: " message prefix.
       Example: cube_warning_echo "Watch out, World"
 
   * cube_warning_printf
-      Same as cube_printf except output to stderr and include a yellow "Warning: "
-      message prefix.
+      Same as cube_printf except output to stderr and include a yellow
+      "Warning: " message prefix.
       Example: cube_warning_printf "Watch out, World from PID %5s" $$
 
   * cube_throw
@@ -269,7 +271,8 @@ Public APIs:
       Example: cube_element_exists "${cubevar_str}" "X"
 
   * cube_elements_count
-      Print to stdout the number of elements in the string $1 as separated by the delimeter $2 (default space).
+      Print to stdout the number of elements in the string $1 as separated by
+      the delimeter $2 (default space).
       Example: cubevar_app_count=$(cube_elements_count "${cubevar_str}")
 
   * cube_command_exists
@@ -299,7 +302,8 @@ Public APIs:
   * cube_operating_system_has_flavor
       Check if the operating system flavor includes the flavor specified in $1
       by one of the POSIXCUBE_OS_FLAVOR_* values.
-      Example: cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} && ...
+      Example: cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_FEDORA} \
+                 && ...
 
   * cube_shell
       Detect running shell and return one of the CUBE_SHELL_* values.
@@ -348,15 +352,18 @@ Public APIs:
       Example: cube_total_memory
 
   * cube_ensure_directory
-      Ensure directory $1, and parent directories, exist. Return true if the directory is created; otherwise, false.
+      Ensure directory $1, and parent directories, exist. Return true if the
+      directory is created; otherwise, false.
       Example: cube_ensure_directory ~/.ssh/
 
   * cube_ensure_file
-      Ensure file $1, and parent directories, exist. Return true if the file is created; otherwise, false.
+      Ensure file $1, and parent directories, exist. Return true if the file is
+      created; otherwise, false.
       Example: cube_ensure_file ~/.ssh/authorized_keys
 
   * cube_pushd
-      Add the current directory to a stack of directories and change directory to ${1}
+      Add the current directory to a stack of directories and change directory
+      to ${1}
       Example: cube_pushd ~/.ssh/
 
   * cube_popd
@@ -369,7 +376,8 @@ Public APIs:
       Example: cube_has_role "database_backup"
 
   * cube_file_contains
-      Check if the file $1 contains $2. Uses grep with default arguments (e.g. regex).
+      Check if the file $1 contains $2. Uses grep with default arguments
+      (e.g. regex).
       Example: cube_file_contains /etc/fstab nfsmount
 
   * cube_stdin_contains
@@ -386,12 +394,39 @@ Public APIs:
 
   * cube_prompt
       Prompt the question $1 followed by " (y/N)" and prompt for an answer.
-      A blank string answer is equivalent to No. Return true if yes, false otherwise.
+      A blank string answer is equivalent to No. Return true if yes, false
+      otherwise.
       Example: cube_prompt "Are you sure?"
 
   * cube_hostname
       Print to stdout the full hostname.
       Example: cube_hostname
+
+  * cube_string_contains
+      Return true if $1 contains $2; otherwise, false.
+      Example: cube_string_contains "${cubevar_app_str}" "@" && ...
+  
+  * cube_string_substring_before
+      Print to stdout a substring of $1 strictly before the first match of the
+      regular expression $2.
+      Example: cubevar_app_x="$(cube_string_substring_before "${somevar}" "@")"
+
+  * cube_string_substring_after
+      Print to stdout a substring of $1 strictly after the first match of the
+      regular expression $2.
+      Example: cubevar_app_x="$(cube_string_substring_after "${somevar}" "@")"
+  
+  * cube_sudo
+      Execute $* as superuser with all posixcube APIs available
+      (see Philosophy #3).
+      Example: cube_sudo cube_ensure_file /etc/app.txt
+  
+  * cube_read_stdin
+      Read stdin (e.g. HEREDOC) into the variable named by the first argument.
+
+  * cube_ensure_user
+      Create the user $1 if it doesn't already exist (with group name $1)
+      Example: cube_ensure_user nginx
 
   * cube_user_exists
       Check if the $1 user exists
@@ -417,37 +452,46 @@ Public APIs:
       Add the user $2 to group $1
       Example: cube_add_group_user nginx nginx
   
-  * cube_string_contains
-      Return true if $1 contains $2; otherwise, false.
-      Example: cube_string_contains "${cubevar_app_str}" "@" && ...
+  * cube_current_user
+      Print to stdout the current user
+      Example: cube_current_user
   
-  * cube_string_substring_before
-      Print to stdout a substring of $1 strictly before the first match of the
-      regular expression $2.
-      Example: cubevar_app_str="$(cube_string_substring_before "${cubevar_app_str}" "@")"
-
-  * cube_string_substring_after
-      Print to stdout a substring of $1 strictly after the first match of the
-      regular expression $2.
-      Example: cubevar_app_str="$(cube_string_substring_after "${cubevar_app_str}" "@")"
+  * cube_user_home_dir
+      Print to stdout the home directory of user $1 (defaults to
+      `cube_current_user`)
+      Example: cube_user_home_dir root
   
-  * cube_sudo
-      Execute $* as superuser with all posixcube APIs available (see Philosophy #3).
-      Example: cube_sudo cube_ensure_file /etc/app.txt
+  * cube_user_ensure_private_key
+      Ensure the SSH private key contents $1 are placed in a file name $2
+      (defaults to `id_rsa`) or the user $3 (defaults to `cube_current_user`)
+      Example: cube_user_ensure_private_key "${cubevar_app_key1_private}"
   
-  * cube_read_stdin
-      Read stdin (e.g. HEREDOC) into the variable named by the first argument.
-
+  * cube_user_ensure_authorized_public_key
+      Ensure the SSH public key contents $1 exist in the `.ssh/authorized_keys`
+      file in the home directory of user $2 (defaults to `cube_current_user`)
+      Example: cube_user_ensure_authorized_public_key "${cubevar_app_key1_pub}"
+  
+  * cube_user_authorize_known_host
+      Ensure the public key(s) of the host $1 are in the `.ssh/known_hosts` file
+      in the home directory of user $2 (defaults to `cube_current_user`). Note:
+      the fingerprints are currently not checked, but you may review STDOUT.
+      To reduce the risks of MITM attacks, you can call this only after a
+      successful call to `cube_user_ensure_private_key` so that the scan is
+      only done once on private key setup.
+      Example: cube_user_authorize_known_host some_host
+  
 Public Variables:
 
   * POSIXCUBE_APIS_ONLY
       Set this to any value to only source the public APIs in posixcube.sh.
-      Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo $(cube_random_number 10)
+      Example: POSIXCUBE_APIS_ONLY=true . posixcube.sh && cube_echo \
+                 $(cube_random_number 10)
   
   * POSIXCUBE_SOURCED
       Set this to any value to only run a sub-COMMAND, most commonly `source`,
       to source in all ENVAR files, but skip actual execution of posixcube.
-      Example: POSIXCUBE_SOURCED=true . posixcube.sh source; POSIXCUBE_SOURCED= ; cube_echo Test
+      Example: POSIXCUBE_SOURCED=true . posixcube.sh source; \
+                 POSIXCUBE_SOURCED= ; cube_echo Test
 
 Source: https://github.com/myplaceonline/posixcube
 HEREDOC
@@ -527,7 +571,8 @@ export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
 
 POSIXCUBE_TRANSFER_SCP="scp -rCpq"
-POSIXCUBE_TRANSFER_RSYNC="rsync -rlpt" # Don't use -a on rsync so that ownership is picked up from the specified user
+POSIXCUBE_TRANSFER_RSYNC="rsync -rlpt" # Don't use -a on rsync so that ownership
+                                       # is picked up from the specified user
 
 cubevar_api_debug=0
 cubevar_api_superuser=""
@@ -748,7 +793,9 @@ cube_line_number() {
 #
 # Example:
 #   some_command || cube_check_return
-# Arguments: None
+# Arguments:
+#   Optional:
+#     $*: Additional information to include in the error message.
 cube_check_return() {
   cube_check_return_val=${?}
   if [ ${cube_check_return_val} -ne 0 ]; then
@@ -1563,6 +1610,7 @@ cube_popd() {
     popd || cube_check_return
   else
     #cube_throw "Not implemented (cube_popd)"
+    # shellcheck disable=SC2164
     cd -
   fi
 }
@@ -1691,113 +1739,6 @@ cube_hostname() {
   fi
 }
 
-# Check if the $1 user exists
-#
-# Example:
-#   cube_user_exists nginx
-# Arguments:
-#   Required:
-#     $1: User name
-cube_user_exists() {
-  cube_check_numargs 1 "${@}"
-  id -u "${1}" >/dev/null 2>&1
-  return $?
-}
-
-# Create the user $1
-#
-# Example:
-#   cube_create_user nginx
-# Arguments:
-#   Required:
-#     $1: User name
-#   Optional:
-#     $2: Shell
-#     $3: Password
-cube_create_user() {
-  cube_check_numargs 1 "${@}"
-  
-  useradd -m "${1}" || cube_check_return
-  
-  if [ "${2}" != "" ]; then
-    usermod -s "${2}" "${1}" || cube_check_return
-  fi
-
-  if [ "${3}" != "" ]; then
-    echo "${1}:${3}" | chpasswd || cube_check_return
-  fi
-  
-  cube_echo "Created user ${1}"
-}
-
-# Check if the $1 group exists
-#
-# Example:
-#   cube_group_exists nginx
-# Arguments:
-#   Required:
-#     $1: Group name
-cube_group_exists() {
-  cube_check_numargs 1 "${@}"
-  cube_file_contains /etc/group "^${1}:"
-}
-
-# Create the group $1
-#
-# Example:
-#   cube_create_group nginx
-# Arguments:
-#   Required:
-#     $1: Group name
-cube_create_group() {
-  cube_check_numargs 1 "${@}"
-  
-  groupadd "${1}" || cube_check_return
-
-  cube_echo "Created group ${1}"
-}
-
-# Check if the $1 group contains the user $2
-#
-# Example:
-#   cube_group_contains_user nginx nginx
-# Arguments:
-#   Required:
-#     $1: Group name
-#     $2: User name
-cube_group_contains_user() {
-  cube_check_numargs 2 "${@}"
-  
-  for cube_group_contains_user in $(groups "${2}" | sed "s/${2} : //g"); do
-    if [ "${cube_group_contains_user}" = "${1}" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-# Add the user $2 to group $1
-#
-# Example:
-#   cube_add_group_user nginx nginx
-# Arguments:
-#   Required:
-#     $1: Group name
-#     $2: User name
-#   Optional:
-#     $3: true if group is primary
-cube_add_group_user() {
-  cube_check_numargs 2 "${@}"
-  
-  if [ "${3}" = "" ]; then
-    ${cubevar_api_superuser} usermod -a -G "${1}" "${2}"
-  else
-    ${cubevar_api_superuser} usermod -g "${1}" "${2}"
-  fi
-
-  cube_echo "Added user ${2} to group ${1}"
-}
-
 # Include the ${1} cube
 #
 # Example:
@@ -1883,6 +1824,285 @@ cube_sudo() {
   cube_sudo_api_script="$(cube_readlink ~/posixcubes/posixcube.sh)"
   cube_echo "Executing cube_sudo with: $*"
   sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cube_sudo_api_script} && $*" || cube_check_return
+}
+
+# Check if the $1 user exists
+#
+# Example:
+#   cube_user_exists nginx
+# Arguments:
+#   Required:
+#     $1: User name
+cube_user_exists() {
+  cube_check_numargs 1 "${@}"
+  id -u "${1}" >/dev/null 2>&1
+  return $?
+}
+
+# Create the user $1
+#
+# Example:
+#   cube_create_user nginx
+# Arguments:
+#   Required:
+#     $1: User name
+#   Optional:
+#     $2: Shell
+#     $3: Password
+cube_create_user() {
+  cube_check_numargs 1 "${@}"
+  
+  useradd -m "${1}" || cube_check_return
+  
+  if [ "${2}" != "" ]; then
+    usermod -s "${2}" "${1}" || cube_check_return
+  fi
+
+  if [ "${3}" != "" ]; then
+    echo "${1}:${3}" | chpasswd || cube_check_return
+  fi
+  
+  cube_echo "Created user ${1}"
+}
+
+# Create the user $1 if it doesn't already exist (with group name $1)
+#
+# Example:
+#   cube_ensure_user nginx
+# Arguments:
+#   Required:
+#     $1: User name
+#   Optional:
+#     $2: Shell
+#     $3: Password
+cube_ensure_user() {
+  cube_check_numargs 1 "${@}"
+
+  if ! cube_user_exists "${1}" ; then
+    cube_create_user "${@}"
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Check if the $1 group exists
+#
+# Example:
+#   cube_group_exists nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+cube_group_exists() {
+  cube_check_numargs 1 "${@}"
+  cube_file_contains /etc/group "^${1}:"
+}
+
+# Create the group $1
+#
+# Example:
+#   cube_create_group nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+cube_create_group() {
+  cube_check_numargs 1 "${@}"
+  
+  groupadd "${1}" || cube_check_return
+
+  cube_echo "Created group ${1}"
+}
+
+# Check if the $1 group contains the user $2
+#
+# Example:
+#   cube_group_contains_user nginx nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+#     $2: User name
+cube_group_contains_user() {
+  cube_check_numargs 2 "${@}"
+  
+  for cube_group_contains_user in $(groups "${2}" | sed "s/${2} : //g"); do
+    if [ "${cube_group_contains_user}" = "${1}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Add the user $2 to group $1
+#
+# Example:
+#   cube_add_group_user nginx nginx
+# Arguments:
+#   Required:
+#     $1: Group name
+#     $2: User name
+#   Optional:
+#     $3: true if group is primary
+cube_add_group_user() {
+  cube_check_numargs 2 "${@}"
+  
+  if [ "${3}" = "" ]; then
+    ${cubevar_api_superuser} usermod -a -G "${1}" "${2}"
+  else
+    ${cubevar_api_superuser} usermod -g "${1}" "${2}"
+  fi
+
+  cube_echo "Added user ${2} to group ${1}"
+}
+
+# Print to stdout the current user
+#
+# Example:
+#   cube_current_user
+# Arguments: None
+cube_current_user() {
+  if [ "${USER}" != "" ]; then
+    echo "${USER}"
+  elif [ "${LOGNAME}" != "" ]; then
+    echo "${LOGNAME}"
+  else
+    cube_throw "Current user cannot be inferred from the environment"
+  fi
+}
+
+# Print to stdout the home directory of user $1 (defaults to `cube_current_user`)
+#
+# Example:
+#   cube_user_home_dir root
+# Arguments:
+#   Optional:
+#     $1: User name
+cube_user_home_dir() {
+  cubevar_api_cube_user_home_dir_user="${1}"
+  
+  if [ "${cubevar_api_cube_user_home_dir_user}" = "" ]; then
+    cubevar_api_cube_user_home_dir_user="$(cube_current_user)"
+  fi
+
+  cubevar_api_cube_user_home_dir_line=$(grep -E "^${cubevar_api_cube_user_home_dir_user}:" /etc/passwd) || cube_check_return "User ${cubevar_api_cube_user_home_dir_user} not found"
+  cubevar_api_cube_user_home_dir_result=$(printf '%s' "${cubevar_api_cube_user_home_dir_line}" | cut -d: -f6) || cube_check_return "Parsing /etc/passwd for user ${cubevar_api_cube_user_home_dir_user} failed"
+  
+  echo "${cubevar_api_cube_user_home_dir_result}"
+}
+
+# Ensure the SSH private key contents $1 are placed in a file name $2
+# (defaults to `id_rsa`) or the user $3 (defaults to `cube_current_user`)
+#
+# Example:
+#   cube_user_ensure_private_key "${cubevar_app_key1}"
+# Arguments:
+#   Required:
+#     $1: SSH private key contents
+#   Optional:
+#     $2: SSH private key file name
+#     $3: User name
+cube_user_ensure_private_key() {
+  cube_check_numargs 1 "${@}"
+  
+  cubevar_api_cube_user_ensure_private_key_file="${2}"
+  
+  if [ "${cubevar_api_cube_user_ensure_private_key_file}" = "" ]; then
+    cubevar_api_cube_user_ensure_private_key_file="id_rsa"
+  fi
+
+  cubevar_api_cube_user_ensure_private_key_user="${3}"
+  
+  if [ "${cubevar_api_cube_user_ensure_private_key_user}" = "" ]; then
+    cubevar_api_cube_user_ensure_private_key_user="$(cube_current_user)"
+  fi
+  
+  cubevar_api_cube_user_ensure_private_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_private_key_user}")"
+  
+  cube_ensure_directory "${cubevar_api_cube_user_ensure_private_key_user_home}/.ssh/" 700 "${cubevar_api_cube_user_ensure_private_key_user}" "${cubevar_api_cube_user_ensure_private_key_user}"
+  
+  cube_set_file_contents_string "${cubevar_api_cube_user_ensure_private_key_user_home}/.ssh/${cubevar_api_cube_user_ensure_private_key_file}" "${1}"
+  cubevar_api_result=$?
+  
+  chown "${cubevar_api_cube_user_ensure_private_key_user}:${cubevar_api_cube_user_ensure_private_key_user}" "${cubevar_api_cube_user_ensure_private_key_user_home}/.ssh/${cubevar_api_cube_user_ensure_private_key_file}" || cube_check_return
+  
+  chmod 600 "${cubevar_api_cube_user_ensure_private_key_user_home}/.ssh/${cubevar_api_cube_user_ensure_private_key_file}" || cube_check_return
+  
+  return ${cubevar_api_result}
+}
+
+# Ensure the SSH public key contents $1 exist in the `.ssh/authorized_keys`
+# file in the home directory of user $2 (defaults to `cube_current_user`)
+#
+# Example:
+#   cube_user_ensure_authorized_public_key "${cubevar_app_key1_pub}"
+# Arguments:
+#   Required:
+#     $1: SSH private key contents
+#   Optional:
+#     $2: User name
+cube_user_ensure_authorized_public_key() {
+  cube_check_numargs 1 "${@}"
+  
+  cubevar_api_cube_user_ensure_authorized_public_key_user="${2}"
+  
+  if [ "${cubevar_api_cube_user_ensure_authorized_public_key_user}" = "" ]; then
+    cubevar_api_cube_user_ensure_authorized_public_key_user="$(cube_current_user)"
+  fi
+  
+  cubevar_api_cube_user_ensure_authorized_public_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_authorized_public_key_user}")"
+  
+  cube_ensure_directory "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/" 700 "${cubevar_api_cube_user_ensure_authorized_public_key_user}" "${cubevar_api_cube_user_ensure_authorized_public_key_user}"
+  
+  touch "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys" || cube_check_return
+  
+  chown "${cubevar_api_cube_user_ensure_authorized_public_key_user}:${cubevar_api_cube_user_ensure_authorized_public_key_user}" "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys" || cube_check_return
+  
+  chmod 600 "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys" || cube_check_return
+  
+  if ! cube_file_contains "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys" "${1}" ; then
+    echo "${1}" >> "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys" || cube_check_return
+    
+    cube_echo "Installed public key into ${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/authorized_keys"
+  fi
+}
+
+# Ensure the public key(s) of the host $1 are in the `.ssh/known_hosts` file
+# in the home directory of user $2 (defaults to `cube_current_user`). Note:
+# the fingerprints are currently not checked, but you may review STDOUT.
+# To reduce the risks of MITM attacks, you can call this only after a
+# successful call to `cube_user_ensure_private_key` so that the scan is
+# only done once on private key setup.
+#
+# Example:
+#   cube_user_authorize_known_host some_host
+# Arguments:
+#   Required:
+#     $1: Remote host
+#   Optional:
+#     $2: User name
+cube_user_authorize_known_host() {
+  cube_check_numargs 1 "${@}"
+  
+  cubevar_api_cube_user_authorize_known_host_user="${2}"
+  
+  if [ "${cubevar_api_cube_user_authorize_known_host_user}" = "" ]; then
+    cubevar_api_cube_user_authorize_known_host_user="$(cube_current_user)"
+  fi
+  
+  cubevar_api_cube_user_authorize_known_host_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_authorize_known_host_user}")"
+  
+  cube_ensure_directory "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/" 700 "${cubevar_api_cube_user_authorize_known_host_user}" "${cubevar_api_cube_user_authorize_known_host_user}"
+  
+  touch "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts" || cube_check_return
+  
+  chown "${cubevar_api_cube_user_authorize_known_host_user}:${cubevar_api_cube_user_authorize_known_host_user}" "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts" || cube_check_return
+  
+  chmod 600 "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts" || cube_check_return
+  
+  if ! ssh-keygen -F "${1}" -f "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts" >/dev/null ; then
+    cube_echo "Installing public keys for ${1} into ${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts"
+
+    ssh-keyscan "${1}" | tee -a "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/known_hosts" || cube_check_return
+  fi
 }
 
 # Append space-delimited service names to this variable to restart services after all CUBEs and COMMANDs
