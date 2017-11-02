@@ -2002,6 +2002,7 @@ cube_user_home_dir() {
     cubevar_api_cube_user_home_dir_user="$(cube_current_user)"
   fi
   
+  # shellcheck disable=SC2046
   if [ $(cube_operating_system) -eq ${POSIXCUBE_OS_MAC_OSX} ]; then
     cubevar_api_cube_user_home_dir_line="$(dscl . -read "/Users/${cubevar_api_cube_user_home_dir_user}" NFSHomeDirectory)" || cube_check_return
     cubevar_api_cube_user_home_dir_result="$(printf '%s' "${cubevar_api_cube_user_home_dir_line}" | sed 's/^NFSHomeDirectory: //g')" || cube_check_return
