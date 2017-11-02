@@ -1839,7 +1839,8 @@ cube_string_substring_after() {
 cube_sudo() {
   cube_check_numargs 1 "${@}"
   cubevar_api_sudo_path="${POSIXCUBE_CACHE_DIRECTORY%/}/posixcube.sh"
-  cubevar_api_sudo_path="$(printf '%s' "${cubevar_api_sudo_path}" | sed "s@~@$(cube_user_home_dir)@g")"
+  cubevar_api_cube_sudo_user_home="$(cube_user_home_dir)" || cube_check_return
+  cubevar_api_sudo_path="$(printf '%s' "${cubevar_api_sudo_path}" | sed "s@~@${cubevar_api_cube_sudo_user_home}@g")"
   cube_echo "Executing cube_sudo with: $*"
   sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
 }
@@ -2000,9 +2001,14 @@ cube_user_home_dir() {
   if [ "${cubevar_api_cube_user_home_dir_user}" = "" ]; then
     cubevar_api_cube_user_home_dir_user="$(cube_current_user)"
   fi
-
-  cubevar_api_cube_user_home_dir_line=$(grep -E "^${cubevar_api_cube_user_home_dir_user}:" /etc/passwd) || cube_check_return "User ${cubevar_api_cube_user_home_dir_user} not found"
-  cubevar_api_cube_user_home_dir_result=$(printf '%s' "${cubevar_api_cube_user_home_dir_line}" | cut -d: -f6) || cube_check_return "Parsing /etc/passwd for user ${cubevar_api_cube_user_home_dir_user} failed"
+  
+  if [ $(cube_operating_system) -eq ${POSIXCUBE_OS_MAC_OSX} ]; then
+    cubevar_api_cube_user_home_dir_line="$(dscl . -read "/Users/${cubevar_api_cube_user_home_dir_user}" NFSHomeDirectory)" || cube_check_return
+    cubevar_api_cube_user_home_dir_result="$(printf '%s' "${cubevar_api_cube_user_home_dir_line}" | sed 's/^NFSHomeDirectory: //g')" || cube_check_return
+  else
+    cubevar_api_cube_user_home_dir_line=$(grep -E "^${cubevar_api_cube_user_home_dir_user}:" /etc/passwd) || cube_check_return "User ${cubevar_api_cube_user_home_dir_user} not found"
+    cubevar_api_cube_user_home_dir_result=$(printf '%s' "${cubevar_api_cube_user_home_dir_line}" | cut -d: -f6) || cube_check_return "Parsing /etc/passwd for user ${cubevar_api_cube_user_home_dir_user} failed"
+  fi
   
   echo "${cubevar_api_cube_user_home_dir_result}"
 }
@@ -2033,7 +2039,7 @@ cube_user_ensure_private_key() {
     cubevar_api_cube_user_ensure_private_key_user="$(cube_current_user)"
   fi
   
-  cubevar_api_cube_user_ensure_private_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_private_key_user}")"
+  cubevar_api_cube_user_ensure_private_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_private_key_user}")" || cube_check_return
   
   cube_ensure_directory "${cubevar_api_cube_user_ensure_private_key_user_home}/.ssh/" 700 "${cubevar_api_cube_user_ensure_private_key_user}" "${cubevar_api_cube_user_ensure_private_key_user}"
   
@@ -2066,7 +2072,7 @@ cube_user_ensure_authorized_public_key() {
     cubevar_api_cube_user_ensure_authorized_public_key_user="$(cube_current_user)"
   fi
   
-  cubevar_api_cube_user_ensure_authorized_public_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_authorized_public_key_user}")"
+  cubevar_api_cube_user_ensure_authorized_public_key_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_ensure_authorized_public_key_user}")" || cube_check_return
   
   cube_ensure_directory "${cubevar_api_cube_user_ensure_authorized_public_key_user_home}/.ssh/" 700 "${cubevar_api_cube_user_ensure_authorized_public_key_user}" "${cubevar_api_cube_user_ensure_authorized_public_key_user}"
   
@@ -2106,7 +2112,7 @@ cube_user_authorize_known_host() {
     cubevar_api_cube_user_authorize_known_host_user="$(cube_current_user)"
   fi
   
-  cubevar_api_cube_user_authorize_known_host_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_authorize_known_host_user}")"
+  cubevar_api_cube_user_authorize_known_host_user_home="$(cube_user_home_dir "${cubevar_api_cube_user_authorize_known_host_user}")" || cube_check_return
   
   cube_ensure_directory "${cubevar_api_cube_user_authorize_known_host_user_home}/.ssh/" 700 "${cubevar_api_cube_user_authorize_known_host_user}" "${cubevar_api_cube_user_authorize_known_host_user}"
   
@@ -2711,7 +2717,11 @@ HEREDOC
     }
 
     p_cubedir=${p_cubedir%/}
-    p_localcubedir="$(printf '%s' "${p_cubedir}" | sed "s@~@$(cube_user_home_dir)@g")"
+    
+    if [ ${p_local} -eq 1 ]; then
+      p_user_home_dir="$(cube_user_home_dir)" || cube_check_return
+      p_localcubedir="$(printf '%s' "${p_cubedir}" | sed "s@~@${p_user_home_dir}@g")"
+    fi
     
     p_script_name="$(cube_current_script_name)"
     p_script_path="$(cube_current_script_abs_path)"
