@@ -48,7 +48,7 @@ usage: posixcube.sh -h HOST... [-l] [-c CUBE_DIR...] [OPTION]... COMMAND...
   -q        Quiet; minimize output.
   -r ROLE   Role name. Option may be specified multiple times.
   -R        Use `rsync` instead of scp.
-  -s        Skip remote host initialization (making ~/posixcubes, uploading
+  -s        Skip remote host initialization (making ~/.posixcube, uploading
             posixcube.sh, etc.). Assumes at least one run completed without -s.
             Does not support encrypted ENVAR files.
   -S        Run cube_package and cube_service APIs as superuser.
@@ -188,7 +188,7 @@ Frequently Asked Questions:
     execution?
   
     You can see details of what's happening with the `-d` flag. By default,
-    the script first loops through every host and ensures that ~/posixcubes/
+    the script first loops through every host and ensures that ~/.posixcube/
     exists, then it transfers itself to the remote host. These two actions
     may be skipped with the `-s` parameter if you've already run the script
     at least once and your version of this script hasn't been updated. Next,
@@ -510,47 +510,6 @@ HEREDOC
 # Public APIs #
 ###############
 
-export POSIXCUBE_COLOR_RESET=""
-export POSIXCUBE_COLOR_RED=""
-export POSIXCUBE_COLOR_GREEN=""
-export POSIXCUBE_COLOR_YELLOW=""
-export POSIXCUBE_COLOR_BLUE=""
-export POSIXCUBE_COLOR_PURPLE=""
-export POSIXCUBE_COLOR_CYAN=""
-export POSIXCUBE_COLOR_WHITE=""
-
-# http://unix.stackexchange.com/a/10065
-if [ -t 1 ]; then
-  tput_colors_output=$(tput colors)
-  if [ -n "${tput_colors_output}" ] && [ "${tput_colors_output}" -ge 8 ]; then
-    POSIXCUBE_COLOR_RESET="$(tput sgr0)" || true
-    export POSIXCUBE_COLOR_RESET
-    POSIXCUBE_COLOR_RED="$(tput setaf 1)" || true
-    export POSIXCUBE_COLOR_RED
-    POSIXCUBE_COLOR_GREEN="$(tput setaf 2)" || true
-    export POSIXCUBE_COLOR_GREEN
-    POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)" || true
-    export POSIXCUBE_COLOR_YELLOW
-    POSIXCUBE_COLOR_BLUE="$(tput setaf 4)" || true
-    export POSIXCUBE_COLOR_BLUE
-    POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)" || true
-    export POSIXCUBE_COLOR_PURPLE
-    POSIXCUBE_COLOR_CYAN="$(tput setaf 6)" || true
-    export POSIXCUBE_COLOR_CYAN
-    POSIXCUBE_COLOR_WHITE="$(tput setaf 7)" || true
-    export POSIXCUBE_COLOR_WHITE
-  fi
-elif [ "${POSIXCUBE_COLORS}" != "" ]; then
-  export POSIXCUBE_COLOR_RESET="\x1B[0m"
-  export POSIXCUBE_COLOR_RED="\x1B[31m"
-  export POSIXCUBE_COLOR_GREEN="\x1B[32m"
-  export POSIXCUBE_COLOR_YELLOW="\x1B[33m"
-  export POSIXCUBE_COLOR_BLUE="\x1B[34m"
-  export POSIXCUBE_COLOR_PURPLE="\x1B[35m"
-  export POSIXCUBE_COLOR_CYAN="\x1B[36m"
-  export POSIXCUBE_COLOR_WHITE="\x1B[37m"
-fi
-
 export POSIXCUBE_NEWLINE="
 "
 export POSIXCUBE_CUBE_NAME=""
@@ -571,13 +530,63 @@ export POSIXCUBE_OS_FLAVOR_CENTOS=5
 export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
 
-POSIXCUBE_TRANSFER_SCP="scp -rCpq"
-POSIXCUBE_TRANSFER_RSYNC="rsync -rlpt" # Don't use -a on rsync so that ownership
-                                       # is picked up from the specified user
+export POSIXCUBE_TRANSFER_SCP="scp -rCpq"
+export POSIXCUBE_TRANSFER_RSYNC="rsync -rlpt" # Don't use -a on rsync so that
+                                              # ownership is picked up from the
+                                              # specified user
+
+# shellcheck disable=SC2088
+export POSIXCUBE_CACHE_DIRECTORY="~/.posixcube/"
+
+export POSIXCUBE_COLOR_RESET=""
+export POSIXCUBE_COLOR_RED=""
+export POSIXCUBE_COLOR_GREEN=""
+export POSIXCUBE_COLOR_YELLOW=""
+export POSIXCUBE_COLOR_BLUE=""
+export POSIXCUBE_COLOR_PURPLE=""
+export POSIXCUBE_COLOR_CYAN=""
+export POSIXCUBE_COLOR_WHITE=""
+
+# http://unix.stackexchange.com/a/10065
+if [ -t 1 ]; then
+  tput_colors_output=$(tput colors)
+  if [ -n "${tput_colors_output}" ] && [ "${tput_colors_output}" -ge 8 ]; then
+    # Separate exports due to https://github.com/koalaman/shellcheck/wiki/SC2155
+    POSIXCUBE_COLOR_RESET="$(tput sgr0)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_RESET
+    POSIXCUBE_COLOR_RED="$(tput setaf 1)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_RED
+    POSIXCUBE_COLOR_GREEN="$(tput setaf 2)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_GREEN
+    POSIXCUBE_COLOR_YELLOW="$(tput setaf 3)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_YELLOW
+    POSIXCUBE_COLOR_BLUE="$(tput setaf 4)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_BLUE
+    POSIXCUBE_COLOR_PURPLE="$(tput setaf 5)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_PURPLE
+    POSIXCUBE_COLOR_CYAN="$(tput setaf 6)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_CYAN
+    POSIXCUBE_COLOR_WHITE="$(tput setaf 7)" || echo "Failure calling tput"
+    export POSIXCUBE_COLOR_WHITE
+  fi
+elif [ "${POSIXCUBE_COLORS}" != "" ]; then
+  export POSIXCUBE_COLOR_RESET="\x1B[0m"
+  export POSIXCUBE_COLOR_RED="\x1B[31m"
+  export POSIXCUBE_COLOR_GREEN="\x1B[32m"
+  export POSIXCUBE_COLOR_YELLOW="\x1B[33m"
+  export POSIXCUBE_COLOR_BLUE="\x1B[34m"
+  export POSIXCUBE_COLOR_PURPLE="\x1B[35m"
+  export POSIXCUBE_COLOR_CYAN="\x1B[36m"
+  export POSIXCUBE_COLOR_WHITE="\x1B[37m"
+fi
 
 cubevar_api_debug=0
 cubevar_api_superuser=""
 cubevar_api_node_hostname="$(hostname)"
+
+#############
+# Functions #
+#############
 
 # Print ${@} to stdout prefixed with ([$(date)] [$(hostname)]) and suffixed with
 # a newline.
@@ -1755,19 +1764,26 @@ cube_include() {
     cube_include_name_base=$(basename "${cube_include_name}" .sh)
     if [ -r "../${cube_include_name}/${cube_include_name_base}.sh" ]; then
       cube_echo "Including ${cube_include_name} cube..."
+      
+      cubevar_api_cube_include_pwd="$(pwd)" || cube_check_return
+      
+      cd "../${cube_include_name}/" || cube_check_return
+      
       # shellcheck disable=SC1090
-      . "../${cube_include_name}/${cube_include_name_base}.sh"
+      . "./${cube_include_name_base}.sh" || cube_check_return
+      
+      cd "${cubevar_api_cube_include_pwd}" || cube_check_return
     else
       cube_throw "Cannot read ${cube_include_name}/${cube_include_name_base}.sh"
     fi
   elif [ -r "../${cube_include_name}" ]; then
     cube_echo "Including ${cube_include_name} cube..."
     # shellcheck disable=SC1090
-    . "../${cube_include_name}"
+    . "../${cube_include_name}" || cube_check_return
   elif [ -r "${cube_include_name}.sh" ]; then
     cube_echo "Including ${cube_include_name} cube..."
     # shellcheck disable=SC1090
-    . "../${cube_include_name}.sh"
+    . "../${cube_include_name}.sh" || cube_check_return
   else
     cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
   fi
@@ -1822,9 +1838,10 @@ cube_string_substring_after() {
 #     $*: Arguments to pass to superuser sub-shell
 cube_sudo() {
   cube_check_numargs 1 "${@}"
-  cube_sudo_api_script="$(cube_readlink ~/posixcubes/posixcube.sh)"
+  cubevar_api_sudo_path="${POSIXCUBE_CACHE_DIRECTORY%/}/posixcube.sh"
+  cubevar_api_sudo_path="$(printf '%s' "${cubevar_api_sudo_path}" | sed "s@~@$(cube_user_home_dir)@g")"
   cube_echo "Executing cube_sudo with: $*"
-  sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cube_sudo_api_script} && $*" || cube_check_return
+  sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
 }
 
 # Check if the $1 user exists
@@ -2135,7 +2152,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p_envar_scripts_password=""
   p_user="${USER}"
   # shellcheck disable=SC2088
-  p_cubedir="~/posixcubes/"
+  p_cubedir="${POSIXCUBE_CACHE_DIRECTORY}"
   p_roles=""
   p_options=""
   p_specfile="./cubespecs.ini"
@@ -2694,7 +2711,7 @@ HEREDOC
     }
 
     p_cubedir=${p_cubedir%/}
-    p_localcubedir=~/posixcubes
+    p_localcubedir="$(printf '%s' "${p_cubedir}" | sed "s@~@$(cube_user_home_dir)@g")"
     
     p_script_name="$(cube_current_script_name)"
     p_script_path="$(cube_current_script_abs_path)"
@@ -2845,7 +2862,7 @@ cube_echo \"Finished cube: ${p_cube_name}\"
       fi
     fi
 
-    p_script="./cube_exec.sh"
+    p_script="cube_exec.sh"
     
     cat <<HEREDOC > "${p_script}"
 #!${p_exec_shell}
@@ -3006,7 +3023,7 @@ HEREDOC
     if [ ${p_local} -eq 1 ]; then
       cube_echo "Executing \`${p_exec_shell} ${p_localcubedir}/${p_script}\` locally ..."
       
-      ${p_exec_shell} ${p_localcubedir}/${p_script}
+      "${p_exec_shell}" "${p_localcubedir}/${p_script}"
     fi
 
     if [ "${p_wait_pids}" != "" ]; then
@@ -3062,4 +3079,4 @@ fi
 #   5. test: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
 #   6. expr: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/expr.html
 #   7. https://wiki.ubuntu.com/DashAsBinSh
-#   8. Parameter expansion: http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_06_02
+#   8. Parameter expansion: http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
