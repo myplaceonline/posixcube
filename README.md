@@ -153,7 +153,7 @@
       approach is to run each command separately and check the status. For example:
       
       cubevar_app_x="$(cmd1)" || cube_check_return
-      cubevar_app_y="$(printf '%s' "${cubevar_app_x}" | cmd2" || cube_check_return
+      cubevar_app_y="$(printf '%s' "${cubevar_app_x}" | cmd2)" || cube_check_return
       
       2. We don't use `set -e` because some functions may handle all errors
       internally (with `cube_check_return`) and use a positive return code as a
