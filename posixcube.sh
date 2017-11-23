@@ -2790,16 +2790,25 @@ cd ${p_cubedir}/ || cube_check_return
     p_envar_scripts="${p_envar_scripts_final}"
     
     for p_cube in ${p_cubes}; do
+      
+      [ ${p_debug} -eq 1 ] && p_printf "Processing cube ${p_cube}\n"
+    
       if [ -d "${p_cube}" ]; then
         p_cube_name=$(basename "${p_cube}")
+        
+        [ ${p_debug} -eq 1 ] && p_printf "Cube directory name ${p_cube_name}\n"
+        
         if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
+        
+          [ ${p_debug} -eq 1 ] && p_printf "Found cube script at ${p_cube}/${p_cube_name}.sh\n"
+        
           p_process_script "${p_cube}/${p_cube_name}.sh"
           chmod u+x "${p_cube}"/*.sh
           p_cube=${p_cube%/}
           p_script_contents="${p_script_contents}
-cd ${p_cubedir}/${p_cube}/ || cube_check_return
+cd ${p_cubedir}/${p_cube_name}/ || cube_check_return
 cube_echo \"Started cube: ${p_cube_name}\"
-POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cube_name}.sh\" . ${p_cubedir}/${p_cube}/${p_cube_name}.sh || cube_check_return \"Last command in cube. Note: some posixcube APIs may return non-zero successful. If this is not checked, then consider ending the script with the statement true.\"
+POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cube_name}.sh\" . ${p_cubedir}/${p_cube_name}/${p_cube_name}.sh || cube_check_return \"Last command in cube. Note: some posixcube APIs may return non-zero successful. If this is not checked, then consider ending the script with the statement true.\"
 cube_echo \"Finished cube: ${p_cube_name}\"
 "
           if [ -r "${p_cube}/envars.sh" ]; then
@@ -2812,6 +2821,9 @@ cube_echo \"Finished cube: ${p_cube_name}\"
           p_exit 1
         fi
       elif [ -r "${p_cube}" ]; then
+        
+        [ ${p_debug} -eq 1 ] && p_printf "Cube file name ${p_cube}\n"
+        
         p_process_script "${p_cube}"
         p_cube_name=$(basename "${p_cube}")
         chmod u+x "${p_cube}"
@@ -2822,6 +2834,9 @@ POSIXCUBE_CUBE_NAME=\"${p_cube_name}\" POSIXCUBE_CUBE_NAME_WITH_PREFIX=\" ${p_cu
 cube_echo \"Finished cube: ${p_cube_name}\"
 "
       elif [ -r "${p_cube}.sh" ]; then
+        
+        [ ${p_debug} -eq 1 ] && p_printf "Cube file name with .sh ${p_cube}\n"
+        
         p_process_script "${p_cube}.sh"
         p_cube_name=$(basename "${p_cube}.sh")
         chmod u+x "${p_cube}.sh"
@@ -2900,6 +2915,10 @@ fi
 HEREDOC
 
     chmod +x "${p_script}"
+            
+    [ ${p_debug} -eq 1 ] && p_printf "Script ${p_script}:\n"
+    
+    [ ${p_debug} -eq 1 ] && cat "${p_script}"
     
     p_upload="${p_script} "
 
@@ -2909,13 +2928,22 @@ HEREDOC
           p_cube_name=$(basename "${p_cube}")
           if [ -r "${p_cube}/${p_cube_name}.sh" ]; then
             p_cube=${p_cube%/}
+            
+            [ ${p_debug} -eq 1 ] && p_printf "Planning to upload ${p_cube}\n"
+            
             p_upload="${p_upload} ${p_cube}"
           fi
         elif [ -r "${p_cube}" ]; then
           p_cube_name=$(basename "${p_cube}")
+            
+          [ ${p_debug} -eq 1 ] && p_printf "Planning to upload ${p_cube}\n"
+          
           p_upload="${p_upload} ${p_cube}"
         elif [ -r "${p_cube}.sh" ]; then
           p_cube_name=$(basename "${p_cube}.sh")
+            
+          [ ${p_debug} -eq 1 ] && p_printf "Planning to upload ${p_cube}.sh\n"
+          
           p_upload="${p_upload} ${p_cube}.sh"
         fi
       done
