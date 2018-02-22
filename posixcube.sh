@@ -1183,6 +1183,12 @@ cube_service_exists() {
 cube_package() {
   cube_check_numargs 1 "${@}"
   
+  # shellcheck disable=SC2154
+  if [ "${cube_package_skip_update}" = "1" ] && ( [ "${1}" = "update" ] || [ "${1}" = "upgrade" ] || [ "${1}" = "upgrade" ] ); then
+    cube_warning_echo "cube_package ${1} skipped because cube_package_skip_update=1"
+    return 0
+  fi
+  
   if cube_command_exists dnf ; then
     cube_echo "Executing dnf -y ${*}"
     ${cubevar_api_superuser} dnf -y "${@}" || cube_check_return
@@ -2299,7 +2305,7 @@ HEREDOC
           do [ -r $c ] && sed -n -e 's/^Host[[:space:]]//p' -e 's/^[[:space:]]*HostName[[:space:]]//p' $c
           done
           for k in /etc/ssh_known_hosts /etc/ssh/ssh_known_hosts ~/.ssh/known_hosts
-          do [ -r $k ] && egrep -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
+          do [ -r $k ] && grep -E -v '^[#\[]' $k|cut -f 1 -d ' '|sed -e 's/[,:].*//g'
           done
           sed -n -e 's/^[0-9][0-9\.]*//p' /etc/hosts; }|sort|uniq|grep -Fv '*'|tr '\n' ' ')
       fi
