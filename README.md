@@ -38,7 +38,7 @@
       -q        Quiet; minimize output.
       -r ROLE   Role name. Option may be specified multiple times.
       -R        Use `rsync` instead of scp.
-      -s        Skip remote host initialization (making ~/posixcubes, uploading
+      -s        Skip remote host initialization (making ~/.posixcube, uploading
                 posixcube.sh, etc.). Assumes at least one run completed without -s.
                 Does not support encrypted ENVAR files.
       -S        Run cube_package and cube_service APIs as superuser.
@@ -178,7 +178,7 @@
         execution?
       
         You can see details of what's happening with the `-d` flag. By default,
-        the script first loops through every host and ensures that ~/posixcubes/
+        the script first loops through every host and ensures that ~/.posixcube/
         exists, then it transfers itself to the remote host. These two actions
         may be skipped with the `-s` parameter if you've already run the script
         at least once and your version of this script hasn't been updated. Next,
@@ -249,8 +249,14 @@
 
       * cube_package
           Pass $@ to the package manager. Implicitly passes the parameter
-          to say yes to questions. On Debian-based systems, use --force-confold
+          to say yes to questions. On Debian-based systems, uses --force-confold
           Example: cube_package install python
+
+      * cube_package_uninstall
+          Same as cube_package, except that you only specify the packages
+          to uninstall, and this will figure out the right operation to
+          pass to the package manager (e.g. dnf=remove, apt=purge).
+          Example: cube_package_uninstall python
 
       * cube_append_str
           Print $1 to stdout with $2 appended after a space if $1 was not blank.
@@ -468,8 +474,8 @@
           To reduce the risks of MITM attacks, you can call this only after a
           successful call to `cube_user_ensure_private_key` so that the scan is
           only done once on private key setup.
-          Example: cube_user_ensure_private_key "${cubevar_app_host_privkey}" \
-                     && cube_user_authorize_known_host some_host
+          Example: cube_user_ensure_private_key "${cubevar_app_host_privkey}" && \
+                    cube_user_authorize_known_host some_host
       
     Public Variables:
 

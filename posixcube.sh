@@ -1,4 +1,6 @@
 #!/bin/sh
+# shellcheck disable=SC1117
+
 # posixcube.sh
 #   A POSIX compliant, shell script-based server automation framework.
 
@@ -259,8 +261,14 @@ Public APIs:
 
   * cube_package
       Pass $@ to the package manager. Implicitly passes the parameter
-      to say yes to questions. On Debian-based systems, use --force-confold
+      to say yes to questions. On Debian-based systems, uses --force-confold
       Example: cube_package install python
+
+  * cube_package_uninstall
+      Same as cube_package, except that you only specify the packages
+      to uninstall, and this will figure out the right operation to
+      pass to the package manager (e.g. dnf=remove, apt=purge).
+      Example: cube_package_uninstall python
 
   * cube_append_str
       Print $1 to stdout with $2 appended after a space if $1 was not blank.
@@ -1173,7 +1181,7 @@ cube_service_exists() {
 }
 
 # Pass $@ to the package manager. Implicitly passes the parameter
-# to say yes to questions. On Debian-based systems, use --force-confold --force-confdef.
+# to say yes to questions. On Debian-based systems, uses --force-confold --force-confdef.
 #
 # Example:
 #   cube_package install python
@@ -1238,6 +1246,27 @@ cube_package() {
     cube_throw "cube_package failed because another process has f-locked /var/lib/dpkg/lock or /var/lib/apt/lists/lock"
   else
     cube_throw "cube_package has not implemented your operating system yet"
+  fi
+}
+
+# Same as cube_package, except that you only specify the packages
+# to uninstall, and this will figure out the right operation to
+# pass to the package manager (e.g. dnf=remove, apt=purge).
+#
+# Example:
+#   cube_package_uninstall python
+# Arguments:
+#   Required:
+#     $@: Packages to uninstall
+cube_package_uninstall() {
+  cube_check_numargs 1 "${@}"
+
+  if cube_command_exists dnf || cube_command_exists yum ; then
+    cube_package remove "${@}"
+  elif cube_command_exists apt-get ; then
+    cube_package purge "${@}"
+  else
+    cube_throw "cube_package_uninstall has not implemented your operating system yet"
   fi
 }
 
