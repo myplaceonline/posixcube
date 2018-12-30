@@ -1191,7 +1191,7 @@ cube_service_exists() {
 cube_package() {
   cube_check_numargs 1 "${@}"
   
-  # shellcheck disable=SC2154
+  # shellcheck disable=SC2154,SC2235
   if [ "${cube_package_skip_update}" = "1" ] && ( [ "${1}" = "update" ] || [ "${1}" = "upgrade" ] || [ "${1}" = "upgrade" ] ); then
     cube_warning_echo "cube_package ${1} skipped because cube_package_skip_update=1"
     return 0
@@ -3041,9 +3041,18 @@ HEREDOC
 
         [ ${p_quiet} -eq 0 ] && p_printf "Transferring files to hosts: ${p_hosts} ...\n"
         
+        # If this script is elsewhere and a symlink, then with certain transfer modes, the script won't be transferred properly,
+        # so we copy it locally.
+        p_created_temp_script=0
+        if ! cube_file_exists "${p_script_name}"; then
+          [ ${p_debug} -eq 1 ] && p_printf "Creating local script ${p_script_path} ${p_script_name} ...\n"
+          cp -fL "${p_script_path}" "${p_script_name}" || cube_check_return
+          p_created_temp_script=1
+        fi
+
         p_wait_pids=""
         for p_host in ${p_hosts}; do
-          p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_script_path} ${p_envar_scripts}" "${p_cubedir}/"
+          p_remote_transfer "${p_host}" "${p_user}" "${p_upload} ${p_script_name} ${p_envar_scripts}" "${p_cubedir}/"
         done
         
         if [ "${p_wait_pids}" != "" ]; then
@@ -3053,6 +3062,10 @@ HEREDOC
           p_host_output_result=$?
           
           p_handle_remote_response ${p_host_output_result} "" "${p_transfer_command}"
+        fi
+
+        if [ ${p_created_temp_script} -eq 1 ]; then
+          rm -f "${p_script_name}" || cube_check_return
         fi
 
         [ ${p_quiet} -eq 0 ] && p_printf "Completed transfers.\n"
