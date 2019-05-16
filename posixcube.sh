@@ -1877,7 +1877,7 @@ cube_sudo() {
   cubevar_api_cube_sudo_user_home="$(cube_user_home_dir)" || cube_check_return
   cubevar_api_sudo_path="$(printf '%s' "${cubevar_api_sudo_path}" | sed "s@~@${cubevar_api_cube_sudo_user_home}@g")"
   cube_echo "Executing cube_sudo with: $*"
-  sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
+  ${cubevar_api_superuser} sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
 }
 
 # Check if the $1 user exists
