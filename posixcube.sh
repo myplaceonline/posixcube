@@ -4,7 +4,7 @@
 # posixcube.sh
 #   A POSIX compliant, shell script-based server automation framework.
 
-POSIXCUBE_VERSION=0.2.0
+POSIXCUBE_VERSION=0.2.1
 
 # On why we don't use `set -e` or `set -u`, see the Philosophy section, #2.
 
@@ -24,6 +24,7 @@ usage: posixcube.sh -h HOST... [-l] [-c CUBE_DIR...] [OPTION]... COMMAND...
   -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
             are also specified, cubes are run first.
   -d        Print debugging information.
+  -D CMD    Use `CMD` as the superuser command instead of `sudo`.
   -e ENVAR  Shell script with environment variable assignments which is
             uploaded and sourced on each HOST. Option may be specified
             multiple times. Files ending with .enc will be decrypted
@@ -175,7 +176,7 @@ Philosophy:
   3. Recent versions of many distributions encourage running most commands
   as a non-superuser, and then using `sudo` if needed, with some distributions
   disallowing remote SSH using the `root` account by default. First, the `sudo`
-  command is not standardized (see http://unix.stackexchange.com/a/48553).
+  command is not standardized (see https://unix.stackexchange.com/a/48553).
   Moreoever, it is not enough to prefix posixcube APIs with `sudo` because
   `sudo` doesn't pass along functions (even if they're exported and `sudo` is
   executed with --preserve-env). `su -c` may be used but it requires
@@ -590,6 +591,7 @@ fi
 
 cubevar_api_debug=0
 cubevar_api_superuser=""
+cubevar_api_superuser_command=""
 cubevar_api_node_hostname="$(hostname)"
 
 #############
@@ -1877,7 +1879,7 @@ cube_sudo() {
   cubevar_api_cube_sudo_user_home="$(cube_user_home_dir)" || cube_check_return
   cubevar_api_sudo_path="$(printf '%s' "${cubevar_api_sudo_path}" | sed "s@~@${cubevar_api_cube_sudo_user_home}@g")"
   cube_echo "Executing cube_sudo with: $*"
-  sudo sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
+  ${cubevar_api_superuser_command} sh -c "POSIXCUBE_APIS_ONLY=true . ${cubevar_api_sudo_path} && $*" || cube_check_return
 }
 
 # Check if the $1 user exists
@@ -2208,6 +2210,7 @@ if [ "${POSIXCUBE_APIS_ONLY}" = "" ]; then
   p_ssh_p_option=""
   # http://serverfault.com/a/593419/259410
   p_ssh_t_option=""
+  p_superuser_command="sudo"
   p_superuser=""
   p_transfer_command="${POSIXCUBE_TRANSFER_SCP}"
   p_local=0
@@ -2358,7 +2361,7 @@ HEREDOC
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
     
-    while getopts "?abc:de:F:h:i:klO:o:p:P:qr:RsStu:U:vw:yz:" p_opt "${@}"; do
+    while getopts "?abc:dD:e:F:h:i:klO:o:p:P:qr:RsStu:U:vw:yz:" p_opt "${@}"; do
       case "$p_opt" in
       \?)
         p_show_usage
@@ -2374,6 +2377,9 @@ HEREDOC
         ;;
       d)
         p_debug=1
+        ;;
+      D)
+        p_superuser_command="${OPTARG}"
         ;;
       e)
         p_envar_scripts_specified=1
@@ -2436,7 +2442,7 @@ HEREDOC
         p_skip_init=1
         ;;
       S)
-        p_superuser="sudo"
+        p_superuser="${p_superuser_command}"
         ;;
       t)
         p_ssh_t_option="-t"
@@ -2937,6 +2943,7 @@ fi
 
 cubevar_api_debug=${p_debug}
 cubevar_api_superuser="${p_superuser}"
+cubevar_api_superuser_command="${p_superuser_command}"
 cubevar_api_roles="${p_roles}"
 ${p_script_envar_contents}
 ${p_options}

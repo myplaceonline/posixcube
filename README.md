@@ -12,6 +12,7 @@
       -c CUBE   Execute a cube. Option may be specified multiple times. If COMMANDS
                 are also specified, cubes are run first.
       -d        Print debugging information.
+      -D CMD    Use `CMD` as the superuser command instead of `sudo`.
       -e ENVAR  Shell script with environment variable assignments which is
                 uploaded and sourced on each HOST. Option may be specified
                 multiple times. Files ending with .enc will be decrypted
@@ -163,7 +164,7 @@
       3. Recent versions of many distributions encourage running most commands
       as a non-superuser, and then using `sudo` if needed, with some distributions
       disallowing remote SSH using the `root` account by default. First, the `sudo`
-      command is not standardized (see http://unix.stackexchange.com/a/48553).
+      command is not standardized (see https://unix.stackexchange.com/a/48553).
       Moreoever, it is not enough to prefix posixcube APIs with `sudo` because
       `sudo` doesn't pass along functions (even if they're exported and `sudo` is
       executed with --preserve-env). `su -c` may be used but it requires
