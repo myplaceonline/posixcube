@@ -535,6 +535,7 @@ export POSIXCUBE_OS_FLAVOR_DEBIAN=2
 export POSIXCUBE_OS_FLAVOR_UBUNTU=3
 export POSIXCUBE_OS_FLAVOR_RHEL=4
 export POSIXCUBE_OS_FLAVOR_CENTOS=5
+export POSIXCUBE_OS_FLAVOR_VOID=6
 
 export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
@@ -1002,6 +1003,11 @@ cube_operating_system_has_flavor() {
         return 0
       fi
       ;;
+    ${POSIXCUBE_OS_FLAVOR_VOID})
+      if cube_file_exists "/etc/os-release" && cube_file_contains /etc/os-release "void"; then
+        return 0
+      fi
+      ;;
     *)
       cube_throw "Unknown operating system flavor ${1}"
       ;;
@@ -1143,6 +1149,17 @@ cube_service() {
       cube_echo "Executing ${cubevar_api_superuser} service ${2} ${1}"
       ${cubevar_api_superuser} service "${2}" "${1}" || cube_check_return
     fi
+  elif cube_command_exists sv ; then
+    if [ "${1}" = "enable" ]; then
+      cube_echo "Executing ${cubevar_api_superuser} ln -s /etc/sv/${2} /var/service"
+      ${cubevar_api_superuser} ln -s /etc/sv/${2} /var/service || cube_check_return
+    elif [ "${1}" = "disable" ]; then
+      cube_echo "Executing ${cubevar_api_superuser} rm -rf /var/service/${2}"
+      ${cubevar_api_superuser} rm -rf /var/service/${2} || cube_check_return
+    else
+      cube_echo "Executing ${cubevar_api_superuser}  sv ${1} ${2}"
+      ${cubevar_api_superuser} sv ${1} ${2}
+    fi
   else
     cube_throw "Could not find service program"
   fi
@@ -1244,8 +1261,10 @@ cube_package() {
         return 0
       fi
     done
-    
     cube_throw "cube_package failed because another process has f-locked /var/lib/dpkg/lock or /var/lib/apt/lists/lock"
+  elif cube_command_exists xbps-install ; then
+    cube_echo "Executing xbps-install -y ${*}"
+    ${cubevar_api_superuser} xbps-install -y "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
@@ -1267,6 +1286,9 @@ cube_package_uninstall() {
     cube_package remove "${@}"
   elif cube_command_exists apt-get ; then
     cube_package purge "${@}"
+  elif cube_command_exists xbps-remove ; then
+    cube_echo "Executing xbps-remove -y ${*}"
+    ${cubevar_api_superuser} xbps-remove -y "${@}" || cube_check_return
   else
     cube_throw "cube_package_uninstall has not implemented your operating system yet"
   fi
