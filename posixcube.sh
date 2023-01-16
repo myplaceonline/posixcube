@@ -4,7 +4,7 @@
 # posixcube.sh
 #   A POSIX compliant, shell script-based server automation framework.
 
-POSIXCUBE_VERSION=0.2.1
+POSIXCUBE_VERSION=0.2.2
 
 # On why we don't use `set -e` or `set -u`, see the Philosophy section, #2.
 
@@ -1815,6 +1815,8 @@ cube_hostname() {
 # Arguments:
 #   Required:
 #     $1: CUBE name
+#   Optional:
+#     $2: Non-blank argument means skip throwing an error if cube is not found
 cube_include() {
   cube_check_numargs 1 "${@}"
   
@@ -1844,7 +1846,9 @@ cube_include() {
     # shellcheck disable=SC1090
     . "../${cube_include_name}.sh" || cube_check_return
   else
-    cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
+    if [ "${2}" = "" ]; then
+      cube_throw "Cube ${cube_include_name} not found. Did you upload it with -U ${cube_include_name} ?"
+    fi
   fi
 }
 
