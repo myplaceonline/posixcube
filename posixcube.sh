@@ -536,6 +536,7 @@ export POSIXCUBE_OS_FLAVOR_UBUNTU=3
 export POSIXCUBE_OS_FLAVOR_RHEL=4
 export POSIXCUBE_OS_FLAVOR_CENTOS=5
 export POSIXCUBE_OS_FLAVOR_VOID=6
+export POSIXCUBE_OS_FLAVOR_ALPINE=7
 
 export POSIXCUBE_SHELL_UNKNOWN=-1
 export POSIXCUBE_SHELL_BASH=1
@@ -1008,6 +1009,11 @@ cube_operating_system_has_flavor() {
         return 0
       fi
       ;;
+    ${POSIXCUBE_OS_FLAVOR_ALPINE})
+      if cube_file_exists "/etc/os-release" && cube_file_contains /etc/os-release "alpine"; then
+        return 0
+      fi
+      ;;
     *)
       cube_throw "Unknown operating system flavor ${1}"
       ;;
@@ -1130,6 +1136,9 @@ cube_service() {
       elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_DEBIAN}; then
         cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} defaults"
         ${cubevar_api_superuser} update-rc.d "${2}" defaults || cube_check_return
+      elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_ALPINE}; then
+        cube_echo "Executing ${cubevar_api_superuser} rc-update add ${2}"
+        ${cubevar_api_superuser} rc-update add "${2}" || cube_check_return
       else
         cube_throw "Not implemented (cube_service 1)"
       fi
@@ -1142,6 +1151,9 @@ cube_service() {
         ${cubevar_api_superuser} update-rc.d -f "${2}" remove || cube_check_return
         cube_echo "Executing ${cubevar_api_superuser} update-rc.d ${2} stop 80 0 1 2 3 4 5 6 ."
         ${cubevar_api_superuser} update-rc.d "${2}" stop 80 0 1 2 3 4 5 6 . || cube_check_return
+      elif cube_operating_system_has_flavor ${POSIXCUBE_OS_FLAVOR_ALPINE}; then
+        cube_echo "Executing ${cubevar_api_superuser} rc-update del ${2}"
+        ${cubevar_api_superuser} rc-update del "${2}" || cube_check_return
       else
         cube_throw "Not implemented (cube_service 1)"
       fi
@@ -1265,6 +1277,9 @@ cube_package() {
   elif cube_command_exists xbps-install ; then
     cube_echo "Executing xbps-install -y ${*}"
     ${cubevar_api_superuser} xbps-install -y "${@}" || cube_check_return
+  elif cube_command_exists apk ; then
+    cube_echo "Executing apk add ${*}"
+    ${cubevar_api_superuser} apk add "${@}" || cube_check_return
   else
     cube_throw "cube_package has not implemented your operating system yet"
   fi
@@ -1289,6 +1304,9 @@ cube_package_uninstall() {
   elif cube_command_exists xbps-remove ; then
     cube_echo "Executing xbps-remove -y ${*}"
     ${cubevar_api_superuser} xbps-remove -y "${@}" || cube_check_return
+  elif cube_command_exists apk ; then
+    cube_echo "Executing apk del ${*}"
+    ${cubevar_api_superuser} apk del "${@}" || cube_check_return
   else
     cube_throw "cube_package_uninstall has not implemented your operating system yet"
   fi
