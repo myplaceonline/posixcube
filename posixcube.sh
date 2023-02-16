@@ -2404,7 +2404,7 @@ HEREDOC
   p_process_options() {
     # getopts processing based on http://stackoverflow.com/a/14203146/5657303
     OPTIND=1 # Reset in case getopts has been used previously in the shell.
-    
+    cubevar_options_superuser=0
     while getopts "?abc:dD:e:F:h:i:klO:o:p:P:qr:RsStu:U:vw:yz:" p_opt "${@}"; do
       case "$p_opt" in
       \?)
@@ -2486,7 +2486,7 @@ HEREDOC
         p_skip_init=1
         ;;
       S)
-        p_superuser="${p_superuser_command}"
+        cubevar_options_superuser=1
         ;;
       t)
         p_ssh_t_option="-t"
@@ -2536,6 +2536,9 @@ HEREDOC
         ;;
       esac
     done
+    if [ ${cubevar_options_superuser} -eq 1 ]; then
+      p_superuser="${p_superuser_command}"
+    fi
   }
 
   p_process_options "${@}"
