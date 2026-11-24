@@ -2695,7 +2695,7 @@ HEREDOC
       p_host_output=""
       if [ "${p_handle_remote_response_result}" -ne 0 ]; then
         p_host_output_color=${POSIXCUBE_COLOR_RED}
-        p_host_output="${p_handle_remote_response_context} failed with return code ${p_handle_remote_response_result}"
+        p_host_output="${p_handle_remote_response_context} failed for ${p_handle_remote_response_host} with return code ${p_handle_remote_response_result}"
       else
         [ ${p_debug} -eq 1 ] && p_host_output="Commands succeeded."
       fi
